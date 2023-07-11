@@ -1,0 +1,36 @@
+{
+    "model" : {
+        "hidden_size" : 768,
+        "decoder_hidden_size" : 768,
+        "num_hidden_layers" : 12,
+        "decoder_num_hidden_layers" : 12,
+        "num_attention_heads" : 12,
+        "decoder_num_attention_heads" : 12,
+        "intermediate_size" : 3072,
+        "decoder_intermediate_size" : 3072,
+        "image_size" : 224,
+        "patch_size" : 16,
+        "num_channels" : 1
+    },
+    "trainer" : {
+        "model_name" : "",
+        "train_epochs" : 5,
+        "device" : "cpu",
+        "loading_model" : false,
+        "load_model_dir" : "",
+        "enable_tensorboard" : false,
+        "tensorboard_logdir" : "/home/rmaguado/board/",
+        "tensorboard_log_frequency" : 10,
+        "enable_warmup" : true,
+        "warmup_steps" : 5000,
+        "warmup_factor" : 10,
+        "base_learning_rate" : 5e-5,
+        "enable_delete_worse_models" : false,
+        "max_models_saved" : 3
+    },
+    "dataloader" : {
+        "batch_size": 256,
+        "shuffle": true,
+        "num_workers": 2
+    }
+}
