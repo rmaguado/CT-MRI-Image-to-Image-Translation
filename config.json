@@ -8,8 +8,8 @@
         "decoder_num_attention_heads" : 12,
         "intermediate_size" : 3072,
         "decoder_intermediate_size" : 3072,
-        "image_size" : 224,
-        "patch_size" : 16,
+        "image_size" : 512,
+        "patch_size" : 32,
         "num_channels" : 1
     },
     "trainer" : {
@@ -24,7 +24,7 @@
         "enable_warmup" : true,
         "warmup_steps" : 5000,
         "warmup_factor" : 10,
-        "base_learning_rate" : 5e-5,
+        "learning_rate" : 5e-5,
         "enable_delete_worse_models" : false,
         "max_models_saved" : 3
     },
