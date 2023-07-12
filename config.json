@@ -1,16 +1,14 @@
 {
     "model" : {
-        "hidden_size" : 768,
-        "decoder_hidden_size" : 768,
-        "num_hidden_layers" : 12,
-        "decoder_num_hidden_layers" : 12,
-        "num_attention_heads" : 12,
-        "decoder_num_attention_heads" : 12,
-        "intermediate_size" : 3072,
-        "decoder_intermediate_size" : 3072,
-        "image_size" : 512,
-        "patch_size" : 32,
-        "num_channels" : 1
+        "img_size" : 512, 
+        "patch_size" : 16, 
+        "in_chans" : 1,
+        "embed_dim" : 1024, 
+        "depth" : 24, 
+        "num_heads" : 16,
+        "decoder_embed_dim" : 512, 
+        "decoder_depth" : 24, 
+        "decoder_num_heads" : 16
     },
     "trainer" : {
         "model_name" : "",
