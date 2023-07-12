@@ -1,19 +1,21 @@
 {
     "model" : {
-        "img_size" : 512, 
-        "patch_size" : 16, 
+        "img_size" : 512,
+        "patch_size" : 16,
         "in_chans" : 1,
-        "embed_dim" : 1024, 
-        "depth" : 24, 
-        "num_heads" : 16,
-        "decoder_embed_dim" : 512, 
-        "decoder_depth" : 24, 
-        "decoder_num_heads" : 16
+        "encoder_embed_dim" : 1024,
+        "encoder_depth" : 24,
+        "encoder_num_heads" : 16,
+        "decoder_embed_dim" : 512,
+        "decoder_depth" : 8,
+        "decoder_num_heads" : 16,
+        "mlp_ratio" : 4.0
     },
     "trainer" : {
-        "model_name" : "",
+        "model_name" : "vit_mae",
+        "model_kwargs" : ["imgs"],
         "train_epochs" : 5,
-        "device" : "cpu",
+        "device" : "cuda:0",
         "loading_model" : false,
         "load_model_dir" : "",
         "enable_tensorboard" : false,
@@ -27,7 +29,7 @@
         "max_models_saved" : 3
     },
     "dataloader" : {
-        "batch_size": 256,
+        "batch_size": 10,
         "shuffle": true,
         "num_workers": 2
     }

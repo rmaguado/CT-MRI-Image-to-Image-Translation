@@ -15,6 +15,7 @@ class Trainer:
             optim,
             config : dict,
             model_name : str,
+            model_kwargs : list = ["x"],
             scheduler = None,
             train_epochs : int = 5,
             device : str = "cpu",
@@ -39,6 +40,7 @@ class Trainer:
         self.optim = optim
         self.config = config
         self.model_name = model_name
+        self.model_kwargs = model_kwargs
         self.scheduler = scheduler
         self.train_epochs = train_epochs
         if device != "cpu" and not torch.cuda.is_available():
@@ -125,15 +127,20 @@ class Trainer:
         for param_group in self.optim.param_groups:
             param_group['lr'] = new_lr
         
-    def eval_loop(self, eval_dataloader, kwargs, epoch_number):
+    def eval_loop(self, eval_dataloader, epoch_number):
         loop = tqdm(eval_dataloader, leave=True, ascii=" >=")
         loop.set_description(f'Test Epoch {epoch_number}')
         self.model.eval()
         total_eval_loss = 0
         for batch_data in loop:
-            outputs = self.model(
-                **{kw:batch_data[i].to(self.device) for i,kw in enumerate(kwargs)}
-            )
+            if len(self.model_kwargs) == 1:
+                outputs = self.model(
+                    batch_data.to(self.device)
+                )
+            else:
+                outputs = self.model(
+                    **{kw:batch_data[i].to(self.device) for i,kw in enumerate(self.model_kwargs)}
+                )
             loss = outputs.loss
             loop.set_postfix(
                 {"loss":loss.item()}
@@ -144,15 +151,20 @@ class Trainer:
             self.writer.add_scalar("Loss/eval", loss.item(), self.batch_counter)
         return avg_eval_loss
     
-    def train_loop(self, train_dataloader, kwargs, epoch_number):
+    def train_loop(self, train_dataloader, epoch_number):
         self.model.train()
         loop = tqdm(train_dataloader, leave=True, ascii=" >=")
         loop.set_description(f'Train Epoch {epoch_number}')
         for batch_data in loop:
             self.model.zero_grad()
-            outputs = self.model(
-                **{kw:batch_data[i].to(self.device) for i,kw in enumerate(kwargs)}
-            )
+            if len(self.model_kwargs) == 1:
+                outputs = self.model(
+                    batch_data.to(self.device)
+                )
+            else:
+                outputs = self.model(
+                    **{kw:batch_data[i].to(self.device) for i,kw in enumerate(self.model_kwargs)}
+                )
             loss = outputs.loss
             loss.backward()
             loop.set_postfix({
@@ -171,12 +183,12 @@ class Trainer:
 
             self.batch_counter += 1
 
-    def train(self, train_dataloader, eval_dataloader, kwargs):
+    def train(self, train_dataloader, eval_dataloader):
         for epoch_number in range(1,self.train_epochs+1):
             logging.info("Starting epoch %s", epoch_number)
-            self.train_loop(train_dataloader, kwargs, epoch_number)
+            self.train_loop(train_dataloader, epoch_number)
             logging.info("Finished training.")
-            eval_loss = self.eval_loop(eval_dataloader, kwargs, epoch_number)
+            eval_loss = self.eval_loop(eval_dataloader, epoch_number)
             logging.info("Finished evaluation. Average loss: %s:.6f", eval_loss)
             if self.enable_delete_worse_models:
                 if len(self.best_model_logs) < self.max_models_saved or \

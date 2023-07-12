@@ -1,16 +1,18 @@
 import json
-from libtiff import TIFF
+#from libtiff import TIFF
 from glob import glob
 import numpy as np
 import torch
 from torch.optim import AdamW
-from transformers import ViTMAEConfig
+from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 
 from models.vit_mae import MaskedAutoencoderViT
+from trainer import Trainer
 
+"""
 def load_images():
     img_dirs = glob("./tempdata/tiff_images/*.tif")
     images = [
@@ -26,29 +28,33 @@ def load_images():
     return images
 
 images = load_images()
+"""
 
 with open("config.json") as file:
     config = json.load(file)
 lr = config["trainer"]["learning_rate"]
 
-model = MaskedAutoencoderViT(model_config).float()
+class randData(Dataset):
+    def __init__(self):
+        self.images = [torch.rand(1, 512, 512) for _ in range(100)]
+    def __len__(self):
+        return len(self.images)
+    def __getitem__(self, idx):
+        return self.images[idx]
+
+testloader = DataLoader(
+    randData(),
+    **config["dataloader"]
+)
+
+model = MaskedAutoencoderViT(**config["model"])
 optim = AdamW(model.parameters(), lr=lr)
 
-device = torch.device("cpu")
-model.to(device)
-images.to(device)
+trainer = Trainer(
+    model, 
+    optim, 
+    config, 
+    **config["trainer"]
+)
 
-total_epochs = 100
-model.train()
-loop = tqdm(range(total_epochs), leave=True, ascii=" >=")
-
-for epoch_number in loop:
-    model.zero_grad()
-    outputs = model.forward(images)
-    loss = outputs.loss
-    loss.backward()
-    loop.set_postfix({
-        "loss":f"{loss.item():.2f}"
-    })
-    optim.step()
-
+trainer.train(testloader, testloader)
