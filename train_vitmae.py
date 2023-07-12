@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 
-from models.vit_mae import ViTMAE
+from models.vit_mae import MaskedAutoencoderViT
 
 def load_images():
     img_dirs = glob("./tempdata/tiff_images/*.tif")
@@ -31,10 +31,7 @@ with open("config.json") as file:
     config = json.load(file)
 lr = config["trainer"]["learning_rate"]
 
-model_config = ViTMAEConfig(
-    **config["model"]
-)
-model = ViTMAE(model_config).float()
+model = MaskedAutoencoderViT(model_config).float()
 optim = AdamW(model.parameters(), lr=lr)
 
 device = torch.device("cpu")
