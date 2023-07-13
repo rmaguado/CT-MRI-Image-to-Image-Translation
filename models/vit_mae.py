@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from timm.models.vision_transformer import PatchEmbed, Block
 
-from pos_embed import get_2d_sincos_pos_embed
+from .pos_embed import get_2d_sincos_pos_embed
 
 def _init_weights(m):
     if isinstance(m, nn.Linear):
@@ -206,6 +206,8 @@ class MaskedAutoencoderViT(nn.Module):
         self.patch_size = patch_size
         self.in_chans = in_chans
 
+        self.mode = "pretrain"
+
         self.encoder = EncoderViT(
             img_size=img_size,
             patch_size=patch_size,
@@ -278,11 +280,11 @@ class MaskedAutoencoderViT(nn.Module):
         loss = (loss * mask).sum() / mask.sum()  # mean loss on removed patches
         return loss
 
-    def forward(self, imgs, input_type="ct", mode="pretrain", mask_ratio=0.75):
-        if mode == "pretrain":
+    def forward(self, imgs, input_type="ct", mask_ratio=0.75):
+        if self.mode == "pretrain":
             latent, mask, ids_restore = self.encoder(imgs, mask_ratio)
             pred = self.decoders[input_type](latent, ids_restore) # [N, L, p*p*channels]
-        elif mode == "nst":
+        elif self.mode == "nst":
             latent, mask, ids_restore = self.encoder(imgs, 0)
 
             first_decoder = [x for x in self.decoders.keys() if x != input_type][0]
@@ -304,7 +306,7 @@ if __name__ == "__main__":
     model = MaskedAutoencoderViT(img_size=224, in_chans=in_chans)
     model.to(device)
     model.eval()
-    output = model(test_image, mode="nst")
+    output = model(test_image)
 
     reconstructed = model.unpatchify(output.pred)
     print(reconstructed.shape)

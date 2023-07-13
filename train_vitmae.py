@@ -37,3 +37,5 @@ trainer = Trainer(
 )
 
 trainer.train(testloader, testloader)
+#model.mode = "nst"
+#trainer.train(testloader, testloader)
