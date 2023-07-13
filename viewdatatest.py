@@ -1,5 +1,4 @@
 from glob import glob
-import nibabel as nib
 import gzip
 import numpy as np
 import matplotlib.pyplot as plt
@@ -9,7 +8,7 @@ import tifffile
 
 """
 Abrir nifti comprimido (.nii.gz):
-
+import nibabel as nib
 nii_image = nib.load(test_path)
 nii_data = nii_image.get_fdata()
 """
