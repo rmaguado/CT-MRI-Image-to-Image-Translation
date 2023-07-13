@@ -1,3 +1,6 @@
 tempdata/**
 **/__pycache__
 .env
+saves/**
+logs/**
+runs/**

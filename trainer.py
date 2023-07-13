@@ -19,6 +19,7 @@ class Trainer:
             scheduler = None,
             train_epochs : int = 5,
             device : str = "cpu",
+            log_dir : str = "",
             loading_model : bool = True,
             load_model_dir : str = "",
             enable_tensorboard : bool = False,
@@ -27,13 +28,15 @@ class Trainer:
             enable_warmup : bool = False,
             warmup_steps : int = 1000,
             learning_rate : float = 0.0005,
+            save_dir : str = "",
             warmup_factor : int = 10,
             enable_delete_worse_models : bool = False,
             max_models_saved : int = 3
         ):
         self.start_timestamp = datetime.now().strftime("%m-%d-%Y-%H_%M_%S")
         logging.basicConfig(
-            filename=f'log-{self.start_timestamp}.txt'
+            filename=os.path.join(log_dir, f'{self.start_timestamp}.txt'),
+            level=logging.INFO
         )
 
         self.model = model
@@ -55,6 +58,7 @@ class Trainer:
         self.enable_warmup = enable_warmup
         self.warmup_steps = warmup_steps
         self.learning_rate = learning_rate
+        self.save_dir = save_dir
         self.warmup_factor = warmup_factor
         self.enable_delete_worse_models = enable_delete_worse_models
         self.max_models_saved = max_models_saved
@@ -64,7 +68,9 @@ class Trainer:
         
         self.batch_counter = 0
         if self.enable_tensorboard:
-            self.writer = SummaryWriter(log_dir=self.tensorboard_logdir+self.start_timestamp)
+            self.writer = SummaryWriter(
+                log_dir=os.path.join(self.tensorboard_logdir,self.start_timestamp)
+            )
         
         if self.enable_delete_worse_models:
             self.best_model_logs = []
@@ -86,7 +92,7 @@ class Trainer:
         save_timestamp = datetime.now().strftime('%m-%d-%Y-%H_%M_%S')
         save_dirname = self.model_name + "-" + save_timestamp
 
-        path = os.path.join("models", save_dirname)
+        path = os.path.join(self.save_dir, save_dirname)
         os.mkdir(path)
 
         torch.save(
