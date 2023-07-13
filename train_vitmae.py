@@ -1,12 +1,7 @@
 import json
-from glob import glob
 import numpy as np
-import torch
 from torch.optim import AdamW
 from torch.utils.data import Dataset, DataLoader
-from tqdm import tqdm
-
-import matplotlib.pyplot as plt
 
 from models.vit_mae import MaskedAutoencoderViT
 from trainer import Trainer
