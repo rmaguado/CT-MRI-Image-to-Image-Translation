@@ -3,7 +3,7 @@ import torch.nn as nn
 
 from timm.models.vision_transformer import PatchEmbed, Block
 
-from .pos_embed import get_2d_sincos_pos_embed
+from pos_embed import get_2d_sincos_pos_embed
 
 def _init_weights(m):
     if isinstance(m, nn.Linear):
@@ -58,8 +58,7 @@ class EncoderViT(nn.Module):
         encoder_depth=24,
         encoder_num_heads=16,
         mlp_ratio=4.,
-        norm_layer=nn.LayerNorm,
-        norm_pix_loss=False
+        norm_layer=nn.LayerNorm
     ):
         super().__init__()
 
@@ -73,8 +72,6 @@ class EncoderViT(nn.Module):
             Block(encoder_embed_dim, encoder_num_heads, mlp_ratio, qkv_bias=True, norm_layer=norm_layer)
             for i in range(encoder_depth)])
         self.norm = norm_layer(encoder_embed_dim)
-        
-        self.norm_pix_loss = norm_pix_loss
 
         self.initialize_weights()
 
@@ -127,8 +124,7 @@ class DecoderViT(nn.Module):
         decoder_depth=8,
         decoder_num_heads=16,
         mlp_ratio=4.,
-        norm_layer=nn.LayerNorm,
-        norm_pix_loss=False
+        norm_layer=nn.LayerNorm
     ):
         super().__init__()
 
@@ -146,8 +142,6 @@ class DecoderViT(nn.Module):
 
         self.decoder_norm = norm_layer(decoder_embed_dim)
         self.decoder_pred = nn.Linear(decoder_embed_dim, patch_size**2 * in_chans, bias=True) # decoder to patch
-
-        self.norm_pix_loss = norm_pix_loss
 
         self.initialize_weights()
 
@@ -220,21 +214,21 @@ class MaskedAutoencoderViT(nn.Module):
             encoder_depth=encoder_depth,
             encoder_num_heads=encoder_num_heads,
             mlp_ratio=mlp_ratio,
-            norm_layer=norm_layer,
-            norm_pix_loss=norm_pix_loss
+            norm_layer=norm_layer
         )
-        self.decoder = DecoderViT(
-            img_size=img_size,
-            patch_size=patch_size,
-            in_chans=in_chans,
-            encoder_embed_dim=encoder_embed_dim,
-            decoder_embed_dim=decoder_embed_dim,
-            decoder_depth=decoder_depth,
-            decoder_num_heads=decoder_num_heads,
-            mlp_ratio=mlp_ratio,
-            norm_layer=norm_layer,
-            norm_pix_loss=norm_pix_loss
-        )
+        self.decoders = {
+            mode : DecoderViT(
+                    img_size=img_size,
+                    patch_size=patch_size,
+                    in_chans=in_chans,
+                    encoder_embed_dim=encoder_embed_dim,
+                    decoder_embed_dim=decoder_embed_dim,
+                    decoder_depth=decoder_depth,
+                    decoder_num_heads=decoder_num_heads,
+                    mlp_ratio=mlp_ratio,
+                    norm_layer=norm_layer
+                ) for mode in ["ct", "mri"]
+        }
 
         self.norm_pix_loss = norm_pix_loss
 
@@ -284,20 +278,33 @@ class MaskedAutoencoderViT(nn.Module):
         loss = (loss * mask).sum() / mask.sum()  # mean loss on removed patches
         return loss
 
-    def forward(self, imgs, mask_ratio=0.75):
-        latent, mask, ids_restore = self.encoder(imgs, mask_ratio)
-        pred = self.decoder(latent, ids_restore)  # [N, L, p*p*channels]
+    def forward(self, imgs, input_type="ct", mode="pretrain", mask_ratio=0.75):
+        if mode == "pretrain":
+            latent, mask, ids_restore = self.encoder(imgs, mask_ratio)
+            pred = self.decoders[input_type](latent, ids_restore) # [N, L, p*p*channels]
+        elif mode == "nst":
+            latent, mask, ids_restore = self.encoder(imgs, 0)
+
+            first_decoder = [x for x in self.decoders.keys() if x != input_type][0]
+            transfer_pred = self.decoders[first_decoder](latent, ids_restore) # [N, L, p*p*channels]
+            latent, mask, ids_restore = self.encoder(self.unpatchify(transfer_pred), 0)
+            pred = self.decoders[input_type](latent, ids_restore) # [N, L, p*p*channels]
+
         loss = self.forward_loss(imgs, pred, mask)
         return ViTOutputs(loss, pred, mask)
 
 if __name__ == "__main__":
     in_chans = 1
-    test_image = torch.rand(10, in_chans, 512, 512)
+    device = torch.device("cpu")
+
+    test_image = torch.rand(1, in_chans, 224, 224)
+    test_image.to(device)
     print(test_image.shape)
 
-    test = MaskedAutoencoderViT(img_size=512, in_chans=in_chans)
-    test.train()
-    output = test(test_image)
+    model = MaskedAutoencoderViT(img_size=224, in_chans=in_chans)
+    model.to(device)
+    model.eval()
+    output = model(test_image, mode="nst")
 
-    reconstructed = test.unpatchify(output.pred)
+    reconstructed = model.unpatchify(output.pred)
     print(reconstructed.shape)
