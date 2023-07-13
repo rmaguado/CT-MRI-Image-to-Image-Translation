@@ -1,4 +1,4 @@
-tempdata/**
+data/**
 **/__pycache__
 .env
 saves/**
