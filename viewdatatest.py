@@ -1,7 +1,6 @@
 from glob import glob
 import nibabel as nib
-import os
-import sys
+import gzip
 import numpy as np
 import matplotlib.pyplot as plt
 import tifffile
@@ -21,7 +20,7 @@ def winsorize_and_rescale(image):
     x = (x + 1024) / 4095
     return np.expand_dims(x, axis=0)
 
-tiff_paths = glob("/nfs/home/clruben/workspace/nst/tempdata/tiff_images/*.tif")
+tiff_paths = glob("/nfs/home/clruben/workspace/nst/data/tiff_images/*.tif")
 
 images = []
 
@@ -33,4 +32,6 @@ for img_path in tiff_paths:
 np_images = np.array(images, dtype=np.float32)
 print(np_images.shape)
 
-np.savez("/nfs/home/clruben/workspace/nst/tempdata/preprocessed/test_batch.npz", np_images)
+f = gzip.GzipFile("/nfs/home/clruben/workspace/nst/data/preprocessed/test/CT/file.npy.gz", "w")
+np.save(f, np_images)
+f.close()
