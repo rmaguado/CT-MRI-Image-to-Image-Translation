@@ -132,6 +132,10 @@ class Trainer:
         new_lr = lr_factor + (self.learning_rate - lr_factor) * self.batch_counter / self.warmup_steps
         for param_group in self.optim.param_groups:
             param_group['lr'] = new_lr
+
+    def eval_tensorboard(self, outputs):
+        loss = outputs.loss
+        self.writer.add_scalar("Loss/eval", loss.item(), self.batch_counter)
         
     def eval_loop(self, eval_dataloader, epoch_number):
         loop = tqdm(eval_dataloader, leave=True, ascii=" >=")
@@ -154,8 +158,13 @@ class Trainer:
             total_eval_loss += loss.item()
         avg_eval_loss = total_eval_loss / len(eval_dataloader)
         if self.enable_tensorboard:
-            self.writer.add_scalar("Loss/eval", loss.item(), self.batch_counter)
+            self.eval_tensorboard(outputs)
         return avg_eval_loss
+    
+    def train_tensorboard(self, outputs):
+        loss = outputs.loss
+        self.writer.add_scalar("Loss/train", loss.item(), self.batch_counter)
+        self.writer.add_scalar("Learning Rate", self.optim.param_groups[0]['lr'], self.batch_counter)
     
     def train_loop(self, train_dataloader, epoch_number):
         self.model.train()
@@ -184,8 +193,7 @@ class Trainer:
                 self.scheduler.step()
 
             if self.enable_tensorboard and self.batch_counter % self.tensorboard_log_frequency == 0:
-                self.writer.add_scalar("Loss/train", loss.item(), self.batch_counter)
-                self.writer.add_scalar("Learning Rate", self.optim.param_groups[0]['lr'], self.batch_counter)
+                self.train_tensorboard(outputs)
 
             self.batch_counter += 1
 
