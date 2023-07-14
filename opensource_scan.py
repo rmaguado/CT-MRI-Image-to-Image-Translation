@@ -3,6 +3,8 @@ import numpy as np
 from glob import glob
 import nibabel as nib
 
+import time
+
 BATCH_SIZE = 10
 TEST_PERCENT = 5
 VAL_PERCENT = 5
@@ -38,8 +40,12 @@ for dataset in datasets:
             os.path.join(ct_dir, "nrrd/*.nii.gz")
         )
     for nifti_dir in nifti_dirs:
+        print(nifti_dir)
+        t0 = time.time()
         nii_ = nib.load(nifti_dir)
         nii_data = nii_.get_fdata()
+        print(time.time()-t0)
+        exit()
         nifti_data.append(
             nii_data
         )

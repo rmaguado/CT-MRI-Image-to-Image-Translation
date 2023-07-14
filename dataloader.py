@@ -49,7 +49,12 @@ class Dataloader:
 
 if __name__ == "__main__":
     from tqdm import tqdm
-    testloader = Dataloader("test")
+    import time
+    t0 = time.time()
+    testloader = Dataloader("train")
+    print(time.time()-t0)
+    t0 = time.time()
     loop = tqdm(testloader)
     for batch, mode in loop:
         x = batch
+    print(time.time()-t0)
