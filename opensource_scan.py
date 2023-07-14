@@ -1,5 +1,4 @@
 import os
-import gzip
 import numpy as np
 from glob import glob
 import nibabel as nib
@@ -15,11 +14,6 @@ def winsorize_and_rescale(image):
     x = np.where(x > 3071, 3071, x)
     x = (x + 1024) / 4095
     return x
-
-def save_gzip(path, data):
-    f = gzip.GzipFile(path, "w")
-    np.save(f, data)
-    f.close()
 
 dataset_root = "../../../../rwork/DATABASES_OPENSOURCE/TCIA_anon/"
 save_root = "/nfs/home/clruben/workspace/nst/data/preprocessed"
@@ -81,17 +75,17 @@ print(test_batch_data.shape)
 print(val_batch_data.shape)
 
 print("train")
-save_gzip(
+np.save(
     os.path.join(save_root, "train/CT.npy.gz"),
     train_batch_data
 )
 print("test")
-save_gzip(
+np.save(
     os.path.join(save_root, "test/CT.npy.gz"),
     test_batch_data
 )
 print("val")
-save_gzip(
+np.save(
     os.path.join(save_root, "val/CT.npy.gz"),
     val_batch_data
 )
