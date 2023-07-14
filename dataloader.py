@@ -8,46 +8,43 @@ DATASET_SOURCE = {
     "val" : "/nfs/home/clruben/workspace/nst/data/preprocessed/val/"
 }
 
+class DataMode:
+    def __init__(self, source_dir, name="CT"):
+        self.source_dir = source_dir
+        self.name = name
+        data_dir = glob(
+            os.path.join(source_dir, name, "*.npy")
+        )[0]
+        data_shape = tuple([int(x) for x in os.path.basename(data_dir).replace(".npy","").split("_")])
+        self.batches = np.memmap(data_dir, dtype=np.float32, mode='r', shape=data_shape)
+        self.counter = 0
+        self.total_batches = data_shape[0]
+
 class Dataloader:
-    def __init__(self, name, batch_size, img_size):
+    def __init__(self, name):
         source_dir = DATASET_SOURCE[name]
-        mri_dir = glob(source_dir + "/MRI/*.npy")[0]
-        ct_dir = glob(source_dir + "/CT/*.npy")[0]
-        mri_data_shape = os.path.basename(mri_dir).replace(".npy","").split("_")
-        ct_data_shape = os.path.basename(ct_dir).replace(".npy","").split("_")
-        self.sources = {
-            "MRI" : {
-                "batches" : np.memmap(mri_dir, dtype=np.float32, mode='r', size=mri_data_shape), 
-                "counter" : 0,
-                "total_batches" : mri_data_shape[0]
-            },
-            "CT" : {
-                "batches" : np.memmap(ct_dir, dtype=np.float32, mode='r', size=ct_data_shape),
-                "counter" : 0,
-                "total_batches" : ct_data_shape[0]
-            }
-        }
-        self.mode = "MRI"
-        self.total_sources = mri_data_shape[0] + ct_data_shape[0]
+        self.sources = [
+            DataMode(source_dir, "MRI"), #mode 0
+            DataMode(source_dir, "CT")   #mode 1
+        ]
+        self.mode = bool(1)
+        self.total_batches = sum([x.total_batches for x in self.sources])
 
     def __len__(self):
-        return self.total_sources
+        return self.total_batches
     def __iter__(self):
         return self
     def __next__(self):
         mode = self.mode
-        current_source_number = self.sources[mode]["counter"]
-        if current_source_number == self.sources[mode]["total_batches"]:
-            for x in self.sources.keys():
-                self.sources[x]["counter"] = 0
+        current_source_number = self.sources[mode].counter
+        if current_source_number == self.sources[mode].total_batches:
+            for x in self.sources:
+                x.counter = 0
             raise StopIteration
         
-        batch = self.sources[mode]["batches"][current_source_number]
-        self.sources[mode]["counter"] += 1
-        if self.mode == "MRI":
-            self.mode = "CT"
-        else:
-            self.mode = "MRI"
+        batch = self.sources[mode].batches[current_source_number]
+        self.sources[mode].counter += 1
+        self.mode = not self.mode
         return batch, mode
 
 if __name__ == "__main__":

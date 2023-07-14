@@ -72,7 +72,7 @@ val_batch_data = np.reshape(val_slices, (val_num_samples//BATCH_SIZE, BATCH_SIZE
 
 def save_batches(data, folder="train/CT"):
     save_folder_dir = os.path.join(save_root, folder)
-    filename = "_".join(data.shape)
+    filename = "_".join([str(x) for x in data.shape])
     np.save(
         os.path.join(save_folder_dir, filename),
         data
