@@ -44,7 +44,7 @@ for dataset in datasets:
             nii_data
         )
 
-np_nifti_data = np.concatenate(nifti_data, axis=2)
+np_nifti_data = np.concatenate(nifti_data, axis=2, dtype=np.float32)
 np_nifti_data = np.transpose(np_nifti_data, axes=(2,0,1))
 
 rng = np.random.default_rng()
@@ -70,23 +70,18 @@ train_batch_data = np.reshape(train_slices, (train_num_samples//BATCH_SIZE, BATC
 test_batch_data = np.reshape(test_slices, (test_num_samples//BATCH_SIZE, BATCH_SIZE, 1, img_size, img_size))
 val_batch_data = np.reshape(val_slices, (val_num_samples//BATCH_SIZE, BATCH_SIZE, 1, img_size, img_size))
 
-print(train_batch_data.shape)
-print(test_batch_data.shape)
-print(val_batch_data.shape)
+def save_batches(data, folder="train/CT"):
+    save_folder_dir = os.path.join(save_root, folder)
+    filename = "_".join(data.shape)
+    np.save(
+        os.path.join(save_folder_dir, filename),
+        data
+    )
 
 print("train")
-np.save(
-    os.path.join(save_root, "train/CT.npy.gz"),
-    train_batch_data
-)
+save_batches(train_batch_data, "train/CT")
 print("test")
-np.save(
-    os.path.join(save_root, "test/CT.npy.gz"),
-    test_batch_data
-)
+save_batches(test_batch_data, "test/CT")
 print("val")
-np.save(
-    os.path.join(save_root, "val/CT.npy.gz"),
-    val_batch_data
-)
+save_batches(val_batch_data, "val/CT")
 print("done")

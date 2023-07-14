@@ -1,7 +1,6 @@
 import numpy as np
-import gzip
 from glob import glob
-import time
+import os
 
 DATASET_SOURCE = {
     "train" : "/nfs/home/clruben/workspace/nst/data/preprocessed/train/",
@@ -9,31 +8,27 @@ DATASET_SOURCE = {
     "val" : "/nfs/home/clruben/workspace/nst/data/preprocessed/val/"
 }
 
-def load_gzip(path):
-    f = gzip.GzipFile(path, "r")
-    batch = np.load(f)
-    f.close()
-    return batch
-
 class Dataloader:
-    def __init__(self, name):
+    def __init__(self, name, batch_size, img_size):
         source_dir = DATASET_SOURCE[name]
-        mri = glob(source_dir + "/MRI/*.npy.gz")
-        ct = glob(source_dir + "/CT/*.npy.gz")
+        mri_dir = glob(source_dir + "/MRI/*.npy")[0]
+        ct_dir = glob(source_dir + "/CT/*.npy")[0]
+        mri_data_shape = os.path.basename(mri_dir).replace(".npy","").split("_")
+        ct_data_shape = os.path.basename(ct_dir).replace(".npy","").split("_")
         self.sources = {
             "MRI" : {
-                "batches" : [load_gzip(p) for p in mri], 
+                "batches" : np.memmap(mri_dir, dtype=np.float32, mode='r', size=mri_data_shape), 
                 "counter" : 0,
-                "total" : len(mri)
+                "total_batches" : mri_data_shape[0]
             },
             "CT" : {
-                "batches" : [load_gzip(p) for p in mri], 
+                "batches" : np.memmap(ct_dir, dtype=np.float32, mode='r', size=ct_data_shape),
                 "counter" : 0,
-                "total" : len(ct)
+                "total_batches" : ct_data_shape[0]
             }
         }
         self.mode = "MRI"
-        self.total_sources = len(mri) + len(ct)
+        self.total_sources = mri_data_shape[0] + ct_data_shape[0]
 
     def __len__(self):
         return self.total_sources
@@ -42,7 +37,7 @@ class Dataloader:
     def __next__(self):
         mode = self.mode
         current_source_number = self.sources[mode]["counter"]
-        if current_source_number == self.sources[mode]["total"]:
+        if current_source_number == self.sources[mode]["total_batches"]:
             for x in self.sources.keys():
                 self.sources[x]["counter"] = 0
             raise StopIteration
@@ -54,3 +49,10 @@ class Dataloader:
         else:
             self.mode = "MRI"
         return batch, mode
+
+if __name__ == "__main__":
+    from tqdm import tqdm
+    testloader = Dataloader("test")
+    loop = tqdm(testloader)
+    for batch, mode in loop:
+        x = batch
