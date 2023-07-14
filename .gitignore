@@ -1,6 +1,4 @@
-data/**
 **/__pycache__
 .env
-saves/**
-logs/**
-runs/**
+.gitignore
+.vscode
