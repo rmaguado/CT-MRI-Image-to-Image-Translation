@@ -17,7 +17,7 @@ def winsorize_and_rescale(image):
     x = (x + 1024) / 4095
     return x
 
-dataset_root = "../../../../rwork/DATABASES_OPENSOURCE/TCIA_anon/"
+dataset_root = "../../../../rwork/DATABASES_OPENSOURCE/TCIA/"
 save_root = "/nfs/home/clruben/workspace/nst/data/preprocessed"
 
 #datasets = next(os.walk(dataset_root))[1]

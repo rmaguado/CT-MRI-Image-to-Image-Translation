@@ -28,7 +28,7 @@ class Dataloader:
             DataMode(source_dir, "CT")   #mode 1
         ]
         self.mode = bool(1)
-        self.total_batches = sum([x.total_batches for x in self.sources])
+        self.total_batches = min([x.total_batches for x in self.sources]) * 2
 
     def __len__(self):
         return self.total_batches
