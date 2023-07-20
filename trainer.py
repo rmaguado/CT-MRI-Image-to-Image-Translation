@@ -138,11 +138,16 @@ class Trainer:
         self.writer.add_scalar("Loss/eval", loss.item(), self.batch_counter)
         
     def eval_loop(self, eval_dataloader, epoch_number):
-        loop = tqdm(eval_dataloader, leave=True, ascii=" >=")
-        loop.set_description(f'Test Epoch {epoch_number}')
         self.model.eval()
+        loop = tqdm(
+            range(len(eval_dataloader)), 
+            leave=True, 
+            ascii=" >="
+        )
+        loop.set_description(f'Test Epoch {epoch_number}')
         total_eval_loss = 0
-        for batch_data in loop:
+        for _ in loop:
+            batch_data = next(eval_dataloader)
             if len(self.model_kwargs) == 1:
                 outputs = self.model(
                     batch_data.to(self.device)
@@ -168,9 +173,14 @@ class Trainer:
     
     def train_loop(self, train_dataloader, epoch_number):
         self.model.train()
-        loop = tqdm(train_dataloader, leave=True, ascii=" >=")
+        loop = tqdm(
+            range(len(train_dataloader)), 
+            leave=True, 
+            ascii=" >="
+        )
         loop.set_description(f'Train Epoch {epoch_number}')
-        for batch_data in loop:
+        for _ in loop:
+            batch_data = next(train_dataloader)
             self.model.zero_grad()
             if len(self.model_kwargs) == 1:
                 outputs = self.model(

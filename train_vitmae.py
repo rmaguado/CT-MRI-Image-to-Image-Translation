@@ -3,7 +3,7 @@ import numpy as np
 from torch.optim import AdamW
 from torch.utils.data import Dataset, DataLoader
 
-from models.vit_mae import MaskedAutoencoderViT
+from models.VITMAE.vit_mae import MaskedAutoencoderViT
 from trainer import Trainer
 
 with open("config.json") as file:
