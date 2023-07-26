@@ -206,7 +206,7 @@ class MaskedAutoencoderViT(nn.Module):
         self.patch_size = patch_size
         self.in_chans = in_chans
 
-        self.mode = "pretrain"
+        self.mode = "masked_modeling"
 
         self.encoder = EncoderViT(
             img_size=img_size,
@@ -219,7 +219,7 @@ class MaskedAutoencoderViT(nn.Module):
             norm_layer=norm_layer
         )
         self.decoders = {
-            mode : DecoderViT(
+            modality : DecoderViT(
                     img_size=img_size,
                     patch_size=patch_size,
                     in_chans=in_chans,
@@ -229,7 +229,7 @@ class MaskedAutoencoderViT(nn.Module):
                     decoder_num_heads=decoder_num_heads,
                     mlp_ratio=mlp_ratio,
                     norm_layer=norm_layer
-                ) for mode in ["ct", "mri"]
+                ) for modality in ["ct", "mri"]
         }
 
         self.norm_pix_loss = norm_pix_loss
@@ -281,10 +281,10 @@ class MaskedAutoencoderViT(nn.Module):
         return loss
 
     def forward(self, imgs, input_type="ct", mask_ratio=0.75):
-        if self.mode == "pretrain":
+        if self.mode == "masked_modeling":
             latent, mask, ids_restore = self.encoder(imgs, mask_ratio)
             pred = self.decoders[input_type](latent, ids_restore) # [N, L, p*p*channels]
-        elif self.mode == "nst":
+        elif self.mode == "translation":
             latent, mask, ids_restore = self.encoder(imgs, 0)
 
             first_decoder = [x for x in self.decoders.keys() if x != input_type][0]
