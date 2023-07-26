@@ -2,15 +2,9 @@ import numpy as np
 from glob import glob
 import os
 
-DATASET_SOURCE = {
-    "train" : "/nfs/home/clruben/workspace/nst/data/preprocessed/train/",
-    "test" : "/nfs/home/clruben/workspace/nst/data/preprocessed/test/",
-    "val" : "/nfs/home/clruben/workspace/nst/data/preprocessed/val/"
-}
-
 class Dataloader:
-    def __init__(self, dataset, mode):
-        source_dir = DATASET_SOURCE[dataset]
+    def __init__(self, source, dataset, mode):
+        source_dir = os.path.join(source, dataset)
         self.source_dir = source_dir
         self.mode = mode
         data_dir = glob(
@@ -36,7 +30,8 @@ if __name__ == "__main__":
     from tqdm import tqdm
     import time
     t0 = time.time()
-    testloader = Dataloader("train", "CT")
+    source = "/nfs/home/clruben/workspace/nst/data/preprocessed/"
+    testloader = Dataloader(source, "train", "CT")
     print(time.time()-t0)
     t0 = time.time()
     loop = tqdm(range(len(testloader)))
