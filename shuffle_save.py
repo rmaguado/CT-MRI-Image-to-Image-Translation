@@ -7,18 +7,37 @@ import random
 from tqdm import tqdm
 import cv2
 
-TOTAL_SLICES : int = 146802 # 44817
+dataset_root = "/nfs/rwork/DATABASES_OPENSOURCE/TCIA/Selected_CTs.csv"
+save_root = "/nfs/home/clruben/workspace/nst/data/"
+mode = "CT"
+
+sources = pd.read_csv(dataset_root)
+
+total_slices = 0
+loop = tqdm(range(len(sources)))
+for i in loop:
+    try:
+        nii_ = nib.load(
+            sources.iloc[i]["FinalPath"]
+        )
+        image = nii_.get_fdata()
+    except:
+        continue
+    if mode == "MRI":
+        if len(image.shape) > 3 and np.min(image) < 0:
+            continue
+    total_slices += min(image.shape)
+
+print(f"Total slices: {total_slices}")
+
 BATCH_SIZE : int = 32
-total_batches = TOTAL_SLICES//BATCH_SIZE
+total_batches = total_slices//BATCH_SIZE
 IMG_SIZE : int = 512
 DATASET_RATIOS = {
     "train" : 0.90,
     "test" : 0.05,
     "val" : 0.05
 }
-dataset_root = "/nfs/rwork/DATABASES_OPENSOURCE/TCIA/Selected_CTs.csv"
-save_root = "/nfs/home/clruben/workspace/nst/data/"
-mode = "CT"
 
 TRAIN_BATCHES = int(total_batches*DATASET_RATIOS["train"])
 TEST_BATCHES = int(total_batches*DATASET_RATIOS["test"])
@@ -87,8 +106,6 @@ val_mmap = create_mmap(
     mode,
     (VAL_BATCHES, BATCH_SIZE, 1, IMG_SIZE, IMG_SIZE)
 )
-
-sources = pd.read_csv(dataset_root)
 
 rng = np.random.default_rng()
 dataset_indexes = list(range(len(sources)))
