@@ -13,7 +13,7 @@
     },
     "trainer" : {
         "model_name" : "vit_mae",
-        "model_kwargs" : ["imgs"],
+        "model_kwargs" : ["imgs", "input_type", "mask_ratio"],
         "train_epochs" : 5,
         "device" : "cuda:0",
         "log_dir" : "/nfs/home/clruben/workspace/nst/logs",
