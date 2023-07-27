@@ -3,6 +3,7 @@ from tqdm import tqdm
 import logging
 import shutil
 import json
+import numpy as np
 import os
 
 from torch.utils.tensorboard import SummaryWriter
@@ -75,6 +76,13 @@ class Trainer:
         if self.enable_delete_worse_models:
             self.best_model_logs = []
 
+    def to_device(self, data):
+        if torch.is_tensor(data):
+            return data.to(self.device)
+        if isinstance(data, np.ndarray):
+            return torch.tensor(data).to(self.device)
+        return data
+    
     def load_model(self, load_model_dir : str):
         checkpoint = torch.load(
             os.path.join(load_model_dir, "parameters.torch")
@@ -150,11 +158,12 @@ class Trainer:
             batch_data = next(eval_dataloader)
             if len(self.model_kwargs) == 1:
                 outputs = self.model(
-                    batch_data.to(self.device)
+                    self.to_device(batch_data)
                 )
             else:
                 outputs = self.model(
-                    **{kw:batch_data[i].to(self.device) for i,kw in enumerate(self.model_kwargs)}
+                    **{kw : self.to_device(batch_data[i])\
+                    for i, kw in enumerate(self.model_kwargs)}
                 )
             loss = outputs.loss
             loop.set_postfix(
@@ -184,11 +193,12 @@ class Trainer:
             self.model.zero_grad()
             if len(self.model_kwargs) == 1:
                 outputs = self.model(
-                    batch_data.to(self.device)
+                    self.to_device(batch_data)
                 )
             else:
                 outputs = self.model(
-                    **{kw:batch_data[i].to(self.device) for i,kw in enumerate(self.model_kwargs)}
+                    **{kw : self.to_device(batch_data[i])\
+                    for i, kw in enumerate(self.model_kwargs)}
                 )
             loss = outputs.loss
             loss.backward()
