@@ -188,7 +188,7 @@ class MaskedAutoencoderViT(nn.Module):
     """
     def __init__(
         self,
-        img_size=224,
+        img_size=512,
         patch_size=16,
         in_chans=3,
         encoder_embed_dim=1024,
@@ -218,7 +218,7 @@ class MaskedAutoencoderViT(nn.Module):
             mlp_ratio=mlp_ratio,
             norm_layer=norm_layer
         )
-        self.decoders = {
+        self.decoders = nn.ModuleDict({
             modality : DecoderViT(
                     img_size=img_size,
                     patch_size=patch_size,
@@ -229,8 +229,8 @@ class MaskedAutoencoderViT(nn.Module):
                     decoder_num_heads=decoder_num_heads,
                     mlp_ratio=mlp_ratio,
                     norm_layer=norm_layer
-                ) for modality in ["ct", "mri"]
-        }
+                ) for modality in ["CT", "MR"]
+        })
 
         self.norm_pix_loss = norm_pix_loss
 
@@ -280,7 +280,7 @@ class MaskedAutoencoderViT(nn.Module):
         loss = (loss * mask).sum() / mask.sum()  # mean loss on removed patches
         return loss
 
-    def forward(self, imgs, input_type="ct", mask_ratio=0.75):
+    def forward(self, imgs, input_type="CT", mask_ratio=0.75):
         if self.mode == "masked_modeling":
             latent, mask, ids_restore = self.encoder(imgs, mask_ratio)
             pred = self.decoders[input_type](latent, ids_restore) # [N, L, p*p*channels]
@@ -297,16 +297,16 @@ class MaskedAutoencoderViT(nn.Module):
 
 if __name__ == "__main__":
     in_chans = 1
-    device = torch.device("cpu")
+    device = torch.device("cuda:0")
 
-    test_image = torch.rand(1, in_chans, 224, 224)
-    test_image.to(device)
-    print(test_image.shape)
+    test_image = torch.rand(32, in_chans, 512, 512).to(device)
+    
+    model = MaskedAutoencoderViT(img_size=512, in_chans=in_chans)
 
-    model = MaskedAutoencoderViT(img_size=224, in_chans=in_chans)
     model.to(device)
-    model.eval()
+    model.train()
     output = model(test_image)
 
     reconstructed = model.unpatchify(output.pred)
     print(reconstructed.shape)
+    

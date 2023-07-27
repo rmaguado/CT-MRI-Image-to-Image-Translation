@@ -11,7 +11,7 @@ with open("config.json") as file:
     config = json.load(file)
 lr = config["trainer"]["learning_rate"]
 
-rootpath = "/nfs/home/clruben/workspace/nst/data/preprocessed"
+rootpath = "/nfs/home/clruben/workspace/nst/data/"
 
 class MaskingAE_Dataloader:
     def __init__(self, source, dataset):
@@ -19,11 +19,10 @@ class MaskingAE_Dataloader:
         """
         self.loaders = [
             Dataloader(source, dataset, "CT"),
-            Dataloader(source, dataset, "MRI")
+            Dataloader(source, dataset, "MR")
         ]
         self.equal_num_examples = min(
-            len(self.ct_loader),
-            len(self.mri_loader)
+            [len(x) for x in self.loaders]
         ) * 2
         self.mode = True
         self.counter = 0
@@ -37,12 +36,12 @@ class MaskingAE_Dataloader:
         if self.counter == self.equal_num_examples:
             self.counter = 0
         next_item = next(self.loaders[self.mode])
-        mode = ["CT", "MRI"][self.mode]
+        mode = ["CT", "MR"][self.mode]
         return next_item, mode, self.masking_ratio
 
 train_loader = MaskingAE_Dataloader(
     rootpath,
-    'train'
+    'test' ############ remember to change to train
 )
 
 test_loader = MaskingAE_Dataloader(
