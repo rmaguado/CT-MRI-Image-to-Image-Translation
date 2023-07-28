@@ -7,7 +7,7 @@ import random
 from tqdm import tqdm
 import cv2
 
-dataset_root = "/nfs/rwork/DATABASES_OPENSOURCE/TCIA/Selected_CTs.csv"
+dataset_root = "/nfs/rwork/DATABASES_OPENSOURCE/TCIA_anon/Selected_CTs.csv"
 save_root = "/nfs/home/clruben/workspace/nst/data/"
 mode = "CT"
 
@@ -30,7 +30,7 @@ for i in loop:
 
 print(f"Total slices: {total_slices}")
 
-BATCH_SIZE : int = 32
+BATCH_SIZE : int = 16
 total_batches = total_slices//BATCH_SIZE
 IMG_SIZE : int = 512
 DATASET_RATIOS = {

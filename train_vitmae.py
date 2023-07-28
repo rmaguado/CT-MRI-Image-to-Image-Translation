@@ -4,7 +4,7 @@ from torch.optim import AdamW
 from dataloader import Dataloader
 from tqdm import tqdm
 
-from models.VITMAE.vit_mae import MaskedAutoencoderViT
+from models.ViT_MAE.vit_mae import ViTMAE_Translation
 from trainer import Trainer
 
 with open("config.json") as file:
@@ -49,7 +49,7 @@ test_loader = MaskingAE_Dataloader(
     'test'
 )
 
-model = MaskedAutoencoderViT(**config["model"])
+model = ViTMAE_Translation(**config["model"])
 optim = AdamW(model.parameters(), lr=lr)
 
 trainer = Trainer(
