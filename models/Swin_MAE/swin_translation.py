@@ -1,5 +1,3 @@
-from functools import partial
-
 import torch
 import torch.nn as nn
 import numpy as np
@@ -21,11 +19,9 @@ class SwinMAEOutputs:
         self.pred = pred
         self.mask = mask
 
-class SwinMAE(nn.Module):
+class SwinTranslation(nn.Module):
+    """Masked Auto Encoder with Swin Transformer backbone
     """
-    Masked Auto Encoder with Swin Transformer backbone
-    """
-
     def __init__(
             self,
             img_size: int = 512,
@@ -34,8 +30,8 @@ class SwinMAE(nn.Module):
             in_chans: int = 1,
             embed_dim: int = 96,
             norm_pix_loss: bool = False,
-            depths: tuple = (2, 2, 6, 2),
-            num_heads: tuple = (3, 6, 12, 24),
+            depths: tuple = (2, 2, 2, 2),
+            num_heads: tuple = (4, 8, 16, 32),
             window_size: int = 7,
             qkv_bias: bool = True,
             mlp_ratio: float = 4.,
@@ -46,7 +42,7 @@ class SwinMAE(nn.Module):
             patch_norm: bool = True
         ):
         super().__init__()
-        self.mask_ratio = mask_ratio
+        self.mae_mask_ratio = mask_ratio
         self.in_chans = in_chans
         assert img_size % patch_size == 0
         self.num_patches = (img_size // patch_size) ** 2
@@ -64,6 +60,10 @@ class SwinMAE(nn.Module):
         self.drop_rate = drop_rate
         self.attn_drop_rate = attn_drop_rate
         self.norm_layer = norm_layer
+        self.modalities = ["CT", "MR"]
+
+        # set mask ratio
+        self.set_mode("MAE")
 
         self.patch_embed = PatchEmbedding(
             patch_size=patch_size,
@@ -82,13 +82,19 @@ class SwinMAE(nn.Module):
             dim=self.latent_dim,
             norm_layer=norm_layer
         )
-        self.decoder = self.build_decoder()
+        self.decoders = nn.ModuleDict({
+            modality : self.build_decoder()
+            for modality in self.modalities
+        })
+
         self.decoder_norm = norm_layer(embed_dim)
-        self.decoder_pred = nn.Linear(
-            self.latent_dim // 8,
-            patch_size ** 2 * in_chans,
-            bias=True
-        )
+        self.decoder_preds = nn.ModuleDict({
+            modality : nn.Linear(
+                self.latent_dim // 8,
+                patch_size ** 2 * in_chans,
+                bias=True
+            ) for modality in self.modalities
+        })
 
         self.initialize_weights()
 
@@ -105,6 +111,15 @@ class SwinMAE(nn.Module):
         torch.nn.init.normal_(self.mask_token, std=.02)
 
         self.apply(_init_weights)
+
+    def set_mode(self, mode):
+        self.mode = mode
+        if mode == "MAE":
+            self.mask_ratio = 0.75
+        elif mode == "translation":
+            self.mask_ratio = 0
+        else:
+            raise ValueError("Mode must be MAE or translation")
 
     def patchify(self, imgs):
         """
@@ -134,21 +149,28 @@ class SwinMAE(nn.Module):
         imgs = x.reshape(x.shape[0], self.in_chans, h * p, h * p)
         return imgs
 
-    def window_masking(self, x: torch.Tensor, r: int = 4,
-                       remove: bool = False, mask_len_sparse: bool = False):
-        """
-        The new masking method, masking the adjacent r*r number of patches together
-
-        Optional whether to remove the mask patch,
-        if so, the return value returns one more sparse_restore for restoring the order to x
+    def window_masking(
+            self,
+            x: torch.Tensor,
+            r: int = 4,
+            remove_mask: bool = False,
+            mask_len_sparse: bool = False
+        ):
+        """The new masking method, masking the adjacent r*r number of patches
+        together.
 
         Optionally, the returned mask index is sparse length or original length,
-        which corresponds to the different size choices of the decoder when restoring the image
+        which corresponds to the different size choices of the decoder when
+        restoring the image.
 
-        x: [N, L, D]
-        r: There are r*r patches in a window
-        remove: Whether to remove the mask patch
-        mask_len_sparse: Whether the returned mask length is a sparse short length
+        Args:
+            x (torch.Tensor): [N, L, D]
+            r (int): There are r*r patches in a window
+            remove_mask (bool): whether to remove the mask patch, if so, the
+                return value returns one more sparse_restore for restoring the
+                order to x.
+            mask_len_sparse: Whether the returned mask length is a sparse short
+                length.
         """
         x = rearrange(x, 'B H W C -> B (H W) C')
         B, L, D = x.shape
@@ -160,18 +182,35 @@ class SwinMAE(nn.Module):
         sparse_restore = torch.argsort(sparse_shuffle, dim=1)
         sparse_keep = sparse_shuffle[:, :int(d ** 2 * (1 - self.mask_ratio))]
 
-        index_keep_part = torch.div(sparse_keep, d, rounding_mode='floor') * d * r ** 2 + sparse_keep % d * r
+        index_keep_part = torch.div(
+            sparse_keep,
+            d,
+            rounding_mode='floor'
+        ) * d * r ** 2 + sparse_keep % d * r
         index_keep = index_keep_part
         for i in range(r):
             for j in range(r):
                 if i == 0 and j == 0:
                     continue
-                index_keep = torch.cat([index_keep, index_keep_part + int(L ** 0.5) * i + j], dim=1)
+                index_keep = torch.cat(
+                    [
+                        index_keep,
+                        index_keep_part + int(L ** 0.5) * i + j
+                    ],
+                    dim=1
+                )
 
         index_all = np.expand_dims(range(L), axis=0).repeat(B, axis=0) 
-        index_mask = np.zeros([B, int(L - index_keep.shape[-1])], dtype=np.int32) 
+        index_mask = np.zeros(
+            [B, int(L - index_keep.shape[-1])],
+            dtype=np.int32
+        ) 
         for i in range(B):
-            index_mask[i] = np.setdiff1d(index_all[i], index_keep.cpu().numpy()[i], assume_unique=True)
+            index_mask[i] = np.setdiff1d(
+                index_all[i],
+                index_keep.cpu().numpy()[i],
+                assume_unique=True
+            )
         index_mask = torch.tensor(index_mask, device=x.device)
 
         index_shuffle = torch.cat([index_keep, index_mask], dim=1)
@@ -186,7 +225,7 @@ class SwinMAE(nn.Module):
             mask[:, :index_keep.shape[-1]] = 0
             mask = torch.gather(mask, dim=1, index=index_restore)
 
-        if remove:
+        if remove_mask:
             x_masked = torch.gather(x, dim=1, index=index_keep.unsqueeze(-1).repeat(1, 1, D))
             x_masked = rearrange(x_masked, 'B (H W) C -> B H W C', H=int(x_masked.shape[1] ** 0.5))
             return x_masked, mask, sparse_restore
@@ -237,31 +276,33 @@ class SwinMAE(nn.Module):
 
     def forward_encoder(self, x):
         x = self.patch_embed(x)
-        x, mask = self.window_masking(x, remove=False, mask_len_sparse=False)
+        x, mask = self.window_masking(x, remove_mask=False, mask_len_sparse=False)
 
         for layer in self.encoder:
             x = layer(x)
 
         return x, mask
 
-    def forward_decoder(self, x):
+    def forward_decoder(self, x, decoder_type="CT"):
         x = self.first_patch_expanding(x)
-        for layer in self.decoder:
+        for layer in self.decoders[decoder_type]:
             x = layer(x)
 
         x = self.decoder_norm(x)
 
         x = rearrange(x, 'B H W C -> B (H W) C')
 
-        x = self.decoder_pred(x)
+        x = self.decoder_preds[decoder_type](x)
 
         return x
 
     def forward_loss(self, imgs, pred, mask):
         """
-        imgs: [N, C, H, W]
-        pred: [N, L, p*p*C]
-        mask: [N, L], 0 is keep, 1 is remove,
+        
+        Args:
+            imgs (torch.Tensor): [N, C, H, W]
+            pred (torch.Tensor): [N, L, p * p * C]
+            mask (torch.Tensor): [N, L], 0 is keep, 1 is remove,
         """
         target = self.patchify(imgs)
         if self.norm_pix_loss:
@@ -275,24 +316,30 @@ class SwinMAE(nn.Module):
         loss = (loss * mask).sum() / mask.sum() 
         return loss
 
-    def forward(self, x):
+    def forward(self, x, input_type="CT"):
         latent, mask = self.forward_encoder(x)
-        pred = self.forward_decoder(latent)
+        if self.mode == "MAE":
+            pred = self.forward_decoder(latent, input_type)
+        elif self.mode == "translation":
+            crossmodal_decoder = [x for x in self.modalities if x != input_type][0]
+            pred = self.forward_decoder(latent, crossmodal_decoder)
+            latent, mask = self.forward_encoder(self.unpatchify(pred))
+            pred = self.forward_decoder(latent, input_type)
         loss = self.forward_loss(x, pred, mask)
         return SwinMAEOutputs(loss, pred, mask)
 
 if __name__ == "__main__":
-    in_chans = 1
-    device = torch.device("cpu")
+    batch_size = 32
+    device = torch.device("cuda:0")
 
-    test_image = torch.rand(1, in_chans, 512, 512).to(device)
+    test_image = torch.rand(batch_size, 1, 512, 512).to(device)
     
-    model = SwinMAE(
+    model = SwinTranslation(
         img_size=512, 
-        in_chans=in_chans,
-        depths=(2, 2, 2, 2),
-        embed_dim=32,
-        num_heads=(2, 4, 8, 16),
+        in_chans=1,
+        depths=(2, 2, 6, 2),
+        embed_dim=96,
+        num_heads=(3, 6, 12, 24),
         window_size=16,
         qkv_bias=True,
         mlp_ratio=4,
@@ -303,8 +350,10 @@ if __name__ == "__main__":
 
     model.to(device)
     model.train()
-    loss, pred, mask = model(test_image)
+    #outputs = model(test_image)
 
-    reconstructed = model.unpatchify(pred)
-    print(reconstructed.shape)
-    
+    model_parameters = filter(lambda p: p.requires_grad, model.parameters())
+    params = sum([np.prod(p.size()) for p in model_parameters])
+    print(params)
+    #reconstructed = model.unpatchify(outputs.pred)
+    #print(reconstructed.shape)

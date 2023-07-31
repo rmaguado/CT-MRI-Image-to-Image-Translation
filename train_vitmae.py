@@ -4,7 +4,7 @@ from torch.optim import AdamW
 from dataloader import Dataloader
 from tqdm import tqdm
 
-from models.ViT_MAE.vit_mae import ViTMAE_Translation
+from models.Swin_MAE.swin_mae import SwinMAE
 from trainer import Trainer
 
 with open("config.json") as file:
@@ -13,7 +13,7 @@ lr = config["trainer"]["learning_rate"]
 
 rootpath = "/nfs/home/clruben/workspace/nst/data/"
 
-class MaskingAE_Dataloader:
+class MAE_Dataloader:
     def __init__(self, source, dataset):
         """Pools together MRI and CT scans for masked modeling.
         """
@@ -39,17 +39,17 @@ class MaskingAE_Dataloader:
         mode = ["CT", "MR"][self.mode]
         return next_item, mode, self.masking_ratio
 
-train_loader = MaskingAE_Dataloader(
+train_loader = MAE_Dataloader(
     rootpath,
     'test' ############ remember to change to train
 )
 
-test_loader = MaskingAE_Dataloader(
+test_loader = MAE_Dataloader(
     rootpath,
     'test'
 )
 
-model = ViTMAE_Translation(**config["model"])
+model = SwinMAE(**config["model"])
 optim = AdamW(model.parameters(), lr=lr)
 
 trainer = Trainer(
