@@ -11,10 +11,10 @@ import random
 from tqdm import tqdm
 import cv2
 
-dataset_root = "/nfs/rwork/DATABASES_OPENSOURCE/TCIA_anon/MR_selection.csv"
+dataset_root = "/nfs/rwork/DATABASES_OPENSOURCE/TCIA_anon/CT_selection.csv"
 save_root = "/nfs/home/clruben/workspace/nst/data/"
 
-MODE = "MR"
+MODE = "CT"
 BATCH_SIZE = 16
 IMG_SIZE = 512
 DATASET_RATIOS = {
@@ -26,6 +26,7 @@ DATASET_RATIOS = {
 def count_total_slices(sources, mode):
     total_slices = 0
     fails = 0
+    fail_paths = []
     loop = tqdm(range(len(sources)))
     for i in loop:
         try:
@@ -37,12 +38,15 @@ def count_total_slices(sources, mode):
             image = nii_.get_fdata()
         except:
             fails += 1
+            fail_paths.append(sources.iloc[i]["FinalPath"])
             continue
         if mode == "MR":
             if len(image.shape) > 3 and np.min(image) < 0:
                 continue
         total_slices += min(image.shape)
-    print(f"Failed to load {fails} nifti files")
+    if len(fails) > 0:
+        print(f"Failed to load {fails} nifti files")
+        print("\n".join(fail_paths))
     return total_slices
 
 def winsorize_and_rescale(image, limits):
@@ -54,9 +58,9 @@ def winsorize_and_rescale(image, limits):
 
 def resize(x):
     num_slices = min(x.shape)
-    big_size = max(x.shape)
     slice_dim = x.shape.index(num_slices)
-    big_dim = [i for i in [0,1,2] if i is not slice_dim][0]
+    big_size = max([i for i in x.shape if i is not num_slices])
+    big_dim = [i for i, j in enumerate(x.shape) if j == big_size and i != slice_dim][0]
     small_dim = [i for i in [0,1,2] if i not in [big_dim, slice_dim]][0]
     small_size = x.shape[small_dim]
     x = np.transpose(x, (big_dim, small_dim, slice_dim))
