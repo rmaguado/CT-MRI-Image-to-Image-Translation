@@ -11,9 +11,10 @@ import random
 from tqdm import tqdm
 import cv2
 
-dataset_root = "/nfs/rwork/DATABASES_OPENSOURCE/TCIA_anon_temp/Selected_CTs.csv"
+dataset_root = "/nfs/rwork/DATABASES_OPENSOURCE/TCIA_anon/MR_selection.csv"
 save_root = "/nfs/home/clruben/workspace/nst/data/"
-MODE = "CT"
+
+MODE = "MR"
 BATCH_SIZE = 16
 IMG_SIZE = 512
 DATASET_RATIOS = {
@@ -24,19 +25,24 @@ DATASET_RATIOS = {
 
 def count_total_slices(sources, mode):
     total_slices = 0
+    fails = 0
     loop = tqdm(range(len(sources)))
     for i in loop:
         try:
-            nii_ = nib.load(
-                sources.iloc[i]["FinalPath"]
+            filepath = os.path.join(
+                sources.iloc[i]["FinalPath"],
+                "image.nii.gz"
             )
+            nii_ = nib.load(filepath)
             image = nii_.get_fdata()
         except:
+            fails += 1
             continue
-        if mode == "MRI":
+        if mode == "MR":
             if len(image.shape) > 3 and np.min(image) < 0:
                 continue
         total_slices += min(image.shape)
+    print(f"Failed to load {fails} nifti files")
     return total_slices
 
 def winsorize_and_rescale(image, limits):
@@ -59,13 +65,13 @@ def resize(x):
         pad_right = big_size - small_size - pad_left
         x = np.pad(x, [[0, 0], [pad_left, pad_right], [0, 0]])
 
-    if big_dim != IMG_SIZE:
+    if big_size != IMG_SIZE:
         res_size = (
             IMG_SIZE,
             IMG_SIZE
         )
         x = cv2.resize(x, dsize=res_size, interpolation=cv2.INTER_CUBIC)
-    x = np.transpose(x, (big_dim, small_dim, slice_dim))
+    x = np.transpose(x, (2, 0, 1))
     x = np.reshape(x, (num_slices, 1, IMG_SIZE, IMG_SIZE))
     return x
 
@@ -81,9 +87,9 @@ def create_mmap(dataset, mode, shape):
     )
     return memmap_array
 
-sources = pd.read_csv(dataset_root, MODE)
+sources = pd.read_csv(dataset_root)
 
-total_slices = count_total_slices(sources)
+total_slices = count_total_slices(sources, MODE)
 print(f"Total slices: {total_slices}")
 
 
@@ -95,11 +101,9 @@ TEST_BATCHES = int(total_batches*DATASET_RATIOS["test"])
 VAL_BATCHES = int(total_batches*DATASET_RATIOS["val"])
 
 if MODE == "CT":
-    LOWER_LIMIT = -1024
-    UPPER_LIMIT = 3071
+    LIMITS = (-1024, 3071)
 else:
-    LOWER_LIMIT = 0
-    UPPER_LIMIT = 2000
+    LIMITS = (0, 2000)
 
 train_mmap = create_mmap(
     "train",
@@ -128,20 +132,21 @@ test_counter = 0
 val_counter = 0
 
 for i in loop:
-    nii_ = nib.load(
-        sources.iloc[i]["FinalPath"]
+    filename = os.path.join(
+        sources.iloc[i]["FinalPath"],
+        "image.nii.gz"
     )
+    nii_ = nib.load(filename)
     try:
         nii_data = nii_.get_fdata().astype(np.float32)
     except:continue
-    if MODE == "MRI" and np.min(nii_data) < 0:
+    if MODE == "MR" and np.min(nii_data) < 0:
         continue
     if len(nii_data.shape) > 3:
         continue
     nii_data = resize(nii_data)
-    nii_data = winsorize_and_rescale(nii_data)
+    nii_data = winsorize_and_rescale(nii_data, LIMITS)
 
-    #rng.shuffle(joined_slices, axis=0)
     for slice_ in nii_data:
         if train_counter < TRAIN_BATCHES:
             train_mmap[train_counter][batch_counter] = slice_
