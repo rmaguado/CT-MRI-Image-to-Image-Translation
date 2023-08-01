@@ -13,6 +13,6 @@ The trainer class handles train and test cycles as well as updating the schedule
 The config file is saved on json format to keep all the parameters that were used in training. A copy should be saved along with each model checkpoint.  
 
 ## Setup
-```pip install ./requirements.txt```
+```./setup.sh```
 ### recommended
 ```tensorboard --logdir ./runs```
