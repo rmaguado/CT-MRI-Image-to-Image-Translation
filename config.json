@@ -25,7 +25,7 @@
         "tensorboard_log_frequency" : 5,
         "enable_warmup" : true,
         "warmup_steps" : 5000,
-        "warmup_factor" : 10,
+        "warmup_factor" : 10.0,
         "learning_rate" : 5e-5,
         "save_dir" : "/nfs/home/clruben/workspace/nst/saves",
         "enable_delete_worse_models" : false,
