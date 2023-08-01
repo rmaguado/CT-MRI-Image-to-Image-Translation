@@ -37,7 +37,7 @@ class MAE_Dataloader:
             self.counter = 0
         next_item = next(self.loaders[self.mode])
         mode = ["CT", "MR"][self.mode]
-        return next_item, mode, self.masking_ratio
+        return next_item, mode
 
 train_loader = MAE_Dataloader(
     rootpath,
@@ -60,5 +60,5 @@ trainer = Trainer(
 )
 
 trainer.train(train_loader, test_loader)
-#model.mode = "nst"
+#model.mode = "translation"
 #trainer.train(testloader, testloader)

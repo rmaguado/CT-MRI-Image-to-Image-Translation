@@ -13,8 +13,8 @@
         "attn_drop_rate" : 0
     },
     "trainer" : {
-        "model_name" : "vit_mae",
-        "model_kwargs" : ["imgs", "input_type", "mask_ratio"],
+        "model_name" : "swin_mae_translation",
+        "model_kwargs" : ["imgs", "input_type"],
         "train_epochs" : 5,
         "device" : "cuda:0",
         "log_dir" : "/nfs/home/clruben/workspace/nst/logs",
@@ -22,7 +22,7 @@
         "load_model_dir" : "",
         "enable_tensorboard" : true,
         "tensorboard_logdir" : "/nfs/home/clruben/workspace/nst/runs",
-        "tensorboard_log_frequency" : 1,
+        "tensorboard_log_frequency" : 5,
         "enable_warmup" : true,
         "warmup_steps" : 5000,
         "warmup_factor" : 10,
@@ -30,10 +30,5 @@
         "save_dir" : "/nfs/home/clruben/workspace/nst/saves",
         "enable_delete_worse_models" : false,
         "max_models_saved" : 3
-    },
-    "dataloader" : {
-        "batch_size": 10,
-        "shuffle": true,
-        "num_workers": 2
     }
 }
