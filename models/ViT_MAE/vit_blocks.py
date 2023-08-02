@@ -3,8 +3,8 @@ import torch.nn as nn
 
 from timm.models.vision_transformer import PatchEmbed, Block
 
-from utils.pos_embed import get_2d_sincos_pos_embed
-from utils.vit_blocks import _init_weights
+from models.utils.pos_embed import get_2d_sincos_pos_embed
+from models.utils.vit_blocks import _init_weights
 
 def random_masking(x, mask_ratio):
     """
@@ -38,7 +38,7 @@ class EncoderViT(nn.Module):
         self,
         img_size=224,
         patch_size=16,
-        in_chans=3,
+        in_chans=1,
         encoder_embed_dim=1024,
         encoder_depth=24,
         encoder_num_heads=16,
@@ -103,7 +103,7 @@ class DecoderViT(nn.Module):
         self,
         img_size=224,
         patch_size=16,
-        in_chans=3,
+        in_chans=1,
         encoder_embed_dim=1024,
         decoder_embed_dim=512,
         decoder_depth=8,
