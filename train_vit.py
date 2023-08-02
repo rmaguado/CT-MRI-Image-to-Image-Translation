@@ -1,8 +1,6 @@
 import json
-import numpy as np
 from torch.optim import AdamW
 from dataloader import Dataloader
-from tqdm import tqdm
 
 from models.ViT_MAE import ViT_Translation
 from trainer import Trainer
@@ -49,7 +47,7 @@ test_loader = MAE_Dataloader(
     'test'
 )
 
-model = SwinTranslation(**config["model"])
+model = ViT_Translation(**config["model"])
 optim = AdamW(model.parameters(), lr=lr)
 
 trainer = Trainer(
