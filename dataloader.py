@@ -3,11 +3,11 @@ from glob import glob
 import os
 
 class Dataloader:
-    def __init__(self, source, dataset, mode, data_augmentation=True):
+    def __init__(self, source, dataset, mode, enable_data_augmentation=False):
         source_dir = os.path.join(source, dataset)
         self.source_dir = source_dir
         self.mode = mode
-        self.data_augmentation = data_augmentation
+        self.enable_data_augmentation = enable_data_augmentation
 
         paths_to_database = glob(
             os.path.join(source_dir, mode, "*.npy")
@@ -57,7 +57,7 @@ class Dataloader:
             self.counter = 0
         batch = self.batches[self.counter]
         self.counter += 1
-        if self.data_augmentation:
+        if self.enable_data_augmentation:
             return self.data_augmentation(batch)
         return batch
 
