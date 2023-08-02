@@ -1,11 +1,7 @@
 import torch
 import torch.nn as nn
 
-from timm.models.vision_transformer import PatchEmbed, Block
-
-from models.utils.pos_embed import get_2d_sincos_pos_embed
-from models.utils.vit_blocks import _init_weights
-from models.ViT_MAE.vit_blocks import random_masking, EncoderViT, DecoderViT
+from models.ViT_MAE.vit_blocks import EncoderViT, DecoderViT
 
 class ViTOutputs:
     def __init__(self, loss, pred, mask):
@@ -20,7 +16,7 @@ class ViT_MAE(nn.Module):
         self,
         img_size=512,
         patch_size=16,
-        in_chans=3,
+        in_chans=1,
         encoder_embed_dim=1024,
         encoder_depth=24,
         encoder_num_heads=16,
@@ -121,7 +117,7 @@ if __name__ == "__main__":
 
     test_image = torch.rand(32, in_chans, 512, 512).to(device)
     
-    model = MaskedAutoencoderViT(img_size=512, in_chans=in_chans)
+    model = ViT_MAE(img_size=512, in_chans=in_chans)
 
     model.to(device)
     model.train()

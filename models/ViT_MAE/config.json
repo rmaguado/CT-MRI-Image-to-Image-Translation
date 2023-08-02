@@ -1,16 +1,15 @@
 {
     "model" : {
-        "img_size" : 512, 
+        "img_size" : 512,
+        "patch_size" : 16,
         "in_chans" : 1,
-        "depths" : [2, 2, 6, 2],
-        "embed_dim" : 96,
-        "num_heads" : [3, 6, 12, 24],
-        "window_size" : 16,
-        "qkv_bias" : true,
-        "mlp_ratio" : 4,
-        "drop_path_rate" : 0.1,
-        "drop_rate" : 0,
-        "attn_drop_rate" : 0
+        "encoder_embed_dim" : 1024,
+        "encoder_depth" : 24,
+        "encoder_num_heads" : 16,
+        "decoder_embed_dim" : 512,
+        "decoder_depth" : 12,
+        "decoder_num_heads"  : 16,
+        "mlp_ratio" : 4.0
     },
     "trainer" : {
         "model_name" : "swin_mae_translation",

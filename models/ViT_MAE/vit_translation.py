@@ -20,7 +20,7 @@ class ViT_Translation(nn.Module):
         self,
         img_size=512,
         patch_size=16,
-        in_chans=3,
+        in_chans=1,
         encoder_embed_dim=1024,
         encoder_depth=24,
         encoder_num_heads=16,
@@ -131,7 +131,7 @@ if __name__ == "__main__":
 
     test_image = torch.rand(32, in_chans, 512, 512).to(device)
     
-    model = MaskedAutoencoderViT(img_size=512, in_chans=in_chans)
+    model = ViT_Translation(img_size=512, in_chans=in_chans)
 
     model.to(device)
     model.train()

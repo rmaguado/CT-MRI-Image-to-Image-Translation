@@ -4,7 +4,7 @@ from torch.optim import AdamW
 from dataloader import Dataloader
 from tqdm import tqdm
 
-from models.Swin_MAE.swin_translation import SwinTranslation
+from models.ViT_MAE import ViT_Translation
 from trainer import Trainer
 
 with open("config.json") as file:
