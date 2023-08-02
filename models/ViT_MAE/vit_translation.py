@@ -13,7 +13,7 @@ class ViTOutputs:
         self.pred = pred
         self.mask = mask
 
-class ViT_MAE(nn.Module):
+class ViT_Translation(nn.Module):
     """ Masked Autoencoder with VisionTransformer backbone
     """
     def __init__(
@@ -48,17 +48,19 @@ class ViT_MAE(nn.Module):
             mlp_ratio=mlp_ratio,
             norm_layer=norm_layer
         )
-        self.decoder = DecoderViT(
-            img_size=img_size,
-            patch_size=patch_size,
-            in_chans=in_chans,
-            encoder_embed_dim=encoder_embed_dim,
-            decoder_embed_dim=decoder_embed_dim,
-            decoder_depth=decoder_depth,
-            decoder_num_heads=decoder_num_heads,
-            mlp_ratio=mlp_ratio,
-            norm_layer=norm_layer
-        )
+        self.decoders = nn.ModuleDict({
+            modality : DecoderViT(
+                    img_size=img_size,
+                    patch_size=patch_size,
+                    in_chans=in_chans,
+                    encoder_embed_dim=encoder_embed_dim,
+                    decoder_embed_dim=decoder_embed_dim,
+                    decoder_depth=decoder_depth,
+                    decoder_num_heads=decoder_num_heads,
+                    mlp_ratio=mlp_ratio,
+                    norm_layer=norm_layer
+                ) for modality in ["CT", "MR"]
+        })
 
         self.norm_pix_loss = norm_pix_loss
 
@@ -108,10 +110,18 @@ class ViT_MAE(nn.Module):
         loss = (loss * mask).sum() / mask.sum()  # mean loss on removed patches
         return loss
 
-    def forward(self, imgs, mask_ratio=0.75):
-        latent, mask, ids_restore = self.encoder(imgs, mask_ratio)
-        pred = self.decoder(latent, ids_restore)
-        
+    def forward(self, imgs, input_type="CT", mask_ratio=0.75):
+        if self.mode == "masked_modeling":
+            latent, mask, ids_restore = self.encoder(imgs, mask_ratio)
+            pred = self.decoders[input_type](latent, ids_restore) # [N, L, p*p*channels]
+        elif self.mode == "translation":
+            latent, mask, ids_restore = self.encoder(imgs, 0)
+
+            first_decoder = [x for x in self.decoders.keys() if x != input_type][0]
+            transfer_pred = self.decoders[first_decoder](latent, ids_restore) # [N, L, p*p*channels]
+            latent, mask, ids_restore = self.encoder(self.unpatchify(transfer_pred), 0)
+            pred = self.decoders[input_type](latent, ids_restore) # [N, L, p*p*channels]
+
         loss = self.forward_loss(imgs, pred, mask)
         return ViTOutputs(loss, pred, mask)
 

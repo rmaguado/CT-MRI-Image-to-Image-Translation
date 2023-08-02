@@ -31,7 +31,7 @@ class SwinTranslation(nn.Module):
             embed_dim: int = 96,
             norm_pix_loss: bool = False,
             depths: tuple = (2, 2, 2, 2),
-            num_heads: tuple = (4, 8, 16, 32),
+            num_heads: tuple = (3, 6, 12, 24),
             window_size: int = 7,
             qkv_bias: bool = True,
             mlp_ratio: float = 4.,
@@ -277,7 +277,6 @@ class SwinTranslation(nn.Module):
     def forward_encoder(self, x):
         x = self.patch_embed(x)
         x, mask = self.window_masking(x, remove_mask=False, mask_len_sparse=False)
-
         for layer in self.encoder:
             x = layer(x)
 
@@ -316,7 +315,7 @@ class SwinTranslation(nn.Module):
         loss = (loss * mask).sum() / mask.sum() 
         return loss
 
-    def forward(self, x, input_type="CT"):
+    def forward(self, x, input_type : str = "CT"):
         latent, mask = self.forward_encoder(x)
         if self.mode == "MAE":
             pred = self.forward_decoder(latent, input_type)
@@ -350,6 +349,7 @@ if __name__ == "__main__":
 
     model.to(device)
     model.train()
+
     #outputs = model(test_image)
 
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
