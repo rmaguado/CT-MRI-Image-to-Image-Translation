@@ -2,14 +2,15 @@ import json
 from torch.optim import AdamW
 from dataloader import Dataloader
 
-from models.ViT_MAE import ViT_Translation
+from models.ViT_MAE.vit_translation import ViT_Translation
 from trainer import Trainer
 
-with open("config.json") as file:
+rootpath = "/nfs/home/clruben/workspace/nst/data/"
+config_path = "/nfs/home/clruben/workspace/nst/models/ViT_MAE/config.json"
+
+with open(config_path) as file:
     config = json.load(file)
 lr = config["trainer"]["learning_rate"]
-
-rootpath = "/nfs/home/clruben/workspace/nst/data/"
 
 class MAE_Dataloader:
     def __init__(self, source, dataset):

@@ -104,11 +104,11 @@ class ViT_MAE(nn.Module):
         loss = (loss * mask).sum() / mask.sum()  # mean loss on removed patches
         return loss
 
-    def forward(self, imgs, mask_ratio=0.75):
-        latent, mask, ids_restore = self.encoder(imgs, mask_ratio)
+    def forward(self, x, mask_ratio=0.75):
+        latent, mask, ids_restore = self.encoder(x, mask_ratio)
         pred = self.decoder(latent, ids_restore)
         
-        loss = self.forward_loss(imgs, pred, mask)
+        loss = self.forward_loss(x, pred, mask)
         return ViTOutputs(loss, pred, mask)
 
 if __name__ == "__main__":

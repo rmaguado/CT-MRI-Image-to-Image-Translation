@@ -110,19 +110,19 @@ class ViT_Translation(nn.Module):
         loss = (loss * mask).sum() / mask.sum()  # mean loss on removed patches
         return loss
 
-    def forward(self, imgs, input_type="CT", mask_ratio=0.75):
+    def forward(self, x, input_type="CT", mask_ratio=0.75):
         if self.mode == "masked_modeling":
-            latent, mask, ids_restore = self.encoder(imgs, mask_ratio)
+            latent, mask, ids_restore = self.encoder(x, mask_ratio)
             pred = self.decoders[input_type](latent, ids_restore) # [N, L, p*p*channels]
         elif self.mode == "translation":
-            latent, mask, ids_restore = self.encoder(imgs, 0)
+            latent, mask, ids_restore = self.encoder(x, 0)
 
             first_decoder = [x for x in self.decoders.keys() if x != input_type][0]
             transfer_pred = self.decoders[first_decoder](latent, ids_restore) # [N, L, p*p*channels]
             latent, mask, ids_restore = self.encoder(self.unpatchify(transfer_pred), 0)
             pred = self.decoders[input_type](latent, ids_restore) # [N, L, p*p*channels]
 
-        loss = self.forward_loss(imgs, pred, mask)
+        loss = self.forward_loss(x, pred, mask)
         return ViTOutputs(loss, pred, mask)
 
 if __name__ == "__main__":
