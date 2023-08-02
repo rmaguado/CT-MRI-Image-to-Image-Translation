@@ -92,7 +92,7 @@ def create_mmap(dataset, mode, shape):
 
 def main(dataset_root, mode="CT"):
 
-    sources = pd.read_csv(dataset_root)[:10]
+    sources = pd.read_csv(dataset_root)
 
     total_slices = count_total_slices(sources, mode)
     print(f"Total slices: {total_slices}")
@@ -171,6 +171,6 @@ def main(dataset_root, mode="CT"):
             if batch_counter == BATCH_SIZE:
                 break
 
-# python3 /nfs/rwork/DATABASES_OPENSOURCE/TCIA_anon/CT_selection.csv CT
+# python3 split.py /nfs/rwork/DATABASES_OPENSOURCE/TCIA_anon/CT_selection.csv CT
 if __name__ == "__main__":
     main(sys.argv[1], sys.argv[2])
