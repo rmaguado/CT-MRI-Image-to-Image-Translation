@@ -180,21 +180,22 @@ class Trainer:
         loop.set_description(f'Test Epoch {epoch_number}')
         total_eval_loss: float = 0.0
         for _ in loop:
-            batch_data = next(eval_dataloader)
-            if len(self.model_kwargs) == 1:
-                outputs = self.model(
-                    self.to_device(batch_data)
+            with torch.no_grad():
+                batch_data = next(eval_dataloader)
+                if len(self.model_kwargs) == 1:
+                    outputs = self.model(
+                        self.to_device(batch_data)
+                    )
+                else:
+                    outputs = self.model(
+                        **{kw : self.to_device(batch_data[i])\
+                        for i, kw in enumerate(self.model_kwargs)}
+                    )
+                loss = outputs.loss
+                loop.set_postfix(
+                    {"loss":loss.item()}
                 )
-            else:
-                outputs = self.model(
-                    **{kw : self.to_device(batch_data[i])\
-                    for i, kw in enumerate(self.model_kwargs)}
-                )
-            loss = outputs.loss
-            loop.set_postfix(
-                {"loss":loss.item()}
-            )
-            total_eval_loss += loss.item()
+                total_eval_loss += loss.item()
         avg_eval_loss: float = total_eval_loss / len(eval_dataloader)
         if self.enable_tensorboard:
             self.eval_tensorboard(outputs)
@@ -241,6 +242,7 @@ class Trainer:
                 self.train_tensorboard(outputs)
 
             self.batch_counter += 1
+        
 
     def train(self, train_dataloader, eval_dataloader):
         for epoch_number in range(1,self.train_epochs+1):
