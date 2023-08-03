@@ -33,6 +33,8 @@ class Trainer:
             warmup_steps: Optional[int] = 1000,
             learning_rate: Optional[float] = 5e-4,
             save_dir: Optional[str] = "",
+            enable_batch_checkpointing : Optional[bool] = True,
+            save_frequency : Optional[int] = 5000,
             warmup_factor: Optional[float] = 10.0,
             enable_delete_worse_models: Optional[bool] = False,
             max_models_saved: Optional[int] = 3
@@ -63,6 +65,8 @@ class Trainer:
         self.warmup_steps: int = warmup_steps
         self.learning_rate: float = learning_rate
         self.save_dir: str = save_dir
+        self.enable_batch_checkpointing: bool = enable_batch_checkpointing
+        self.save_frequency: int = save_frequency
         self.warmup_factor:float = warmup_factor
         self.enable_delete_worse_models: bool = enable_delete_worse_models
         self.max_models_saved: int = max_models_saved
@@ -111,7 +115,7 @@ class Trainer:
         self.batch_counter: int = logs["batch_counter"]
         logging.info("Loaded model from checkpoint.")
 
-    def save_model(self, epoch_number: int, eval_loss: float):
+    def save_model(self, epoch_number: int, loss: float):
         save_timestamp: str = datetime.now().strftime('%m-%d-%Y-%H_%M_%S')
         save_dirname: str = self.model_name + "-" + save_timestamp
 
@@ -131,7 +135,7 @@ class Trainer:
         logs: dict = {
             'epoch_number': epoch_number,
             'tensorboard_counter' : self.batch_counter,
-            'eval_loss': eval_loss,
+            'eval_loss': loss,
             'lr': self.optim.param_groups[0]['lr'],
             'start_time' : self.start_timestamp
         }
@@ -149,9 +153,25 @@ class Trainer:
 
         logging.info("Saved model checkpoint.")
         return path
+    
+    def create_checkpoint(self, epoch_number: int, loss: float):
+        if self.enable_delete_worse_models:
+            if len(self.best_model_logs) < self.max_models_saved or \
+            loss < max([save["loss"] for save in self.best_model_logs]):
+
+                save_dir: str = self.save_model(epoch_number, loss)
+
+                self.best_model_logs.append({
+                    "loss": loss,
+                    "save_dir" : save_dir
+                })
+            if len(self.best_model_logs) > self.max_models_saved:
+                self.delete_worse_models()
+            return
+        self.save_model(epoch_number, loss)
 
     def delete_worse_models(self):
-        saved_model_losses = [x["eval_loss"] for x in self.best_model_logs]
+        saved_model_losses = [x["loss"] for x in self.best_model_logs]
         worst_model_idx: int = saved_model_losses.index(max(saved_model_losses))
         worst_save_dir: str = self.best_model_logs[worst_model_idx]["save_dir"]
         shutil.rmtree(worst_save_dir)
@@ -169,7 +189,7 @@ class Trainer:
     def eval_tensorboard(self, outputs):
         loss = outputs.loss
         self.writer.add_scalar("Loss/eval", loss.item(), self.batch_counter)
-        
+
     def eval_loop(self, eval_dataloader, epoch_number):
         self.model.eval()
         loop = tqdm(
@@ -204,8 +224,16 @@ class Trainer:
     
     def train_tensorboard(self, outputs):
         loss = outputs.loss
-        self.writer.add_scalar("Loss/train", loss.item(), self.batch_counter)
-        self.writer.add_scalar("Learning Rate", self.optim.param_groups[0]['lr'], self.batch_counter)
+        self.writer.add_scalar(
+            "Loss/train",
+            loss.item(),
+            self.batch_counter
+        )
+        self.writer.add_scalar(
+            "Learning Rate",
+            self.optim.param_groups[0]['lr'],
+            self.batch_counter
+        )
     
     def train_loop(self, train_dataloader, epoch_number):
         self.model.train()
@@ -235,16 +263,20 @@ class Trainer:
             })
             self.optim.step()
 
+            if self.enable_batch_checkpointing and \
+            self.batch_counter % self.save_frequency == 0:
+                self.create_checkpoint(epoch_number, loss.item())
+
             if self.enable_warmup and self.batch_counter < self.warmup_steps:
                 self.step_lr_warmup()
             elif self.scheduler is not None:
                 self.scheduler.step()
 
-            if self.enable_tensorboard and self.batch_counter % self.tensorboard_log_frequency == 0:
+            if self.enable_tensorboard and \
+            self.batch_counter % self.tensorboard_log_frequency == 0:
                 self.train_tensorboard(outputs)
 
             self.batch_counter += 1
-        
 
     def train(self, train_dataloader, eval_dataloader):
         for epoch_number in range(1,self.train_epochs+1):
@@ -253,16 +285,6 @@ class Trainer:
             logging.info("Finished training.")
             eval_loss = self.eval_loop(eval_dataloader, epoch_number)
             logging.info("Finished evaluation. Average loss: %s:.6f", eval_loss)
-            if self.enable_delete_worse_models:
-                if len(self.best_model_logs) < self.max_models_saved or \
-                eval_loss < max([save["eval_loss"] for save in self.best_model_logs]):
-
-                    save_dir: str = self.save_model(epoch_number, eval_loss)
-
-                    self.best_model_logs.append({
-                        "eval_loss": eval_loss,
-                        "save_dir" : save_dir
-                    })
-                if len(self.best_model_logs) > self.max_models_saved:
-                    self.delete_worse_models()
+            if not self.enable_batch_checkpointing:
+                self.create_checkpoint(epoch_number, eval_loss)
         logging.info("Finished training. Exiting.")
