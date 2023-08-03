@@ -14,5 +14,6 @@ The config file is saved on json format to keep all the parameters that were use
 
 ## Setup
 ```./setup.sh```
-### recommended
+
+## Tensorboard
 ```tensorboard --logdir ./runs```
