@@ -40,7 +40,7 @@ class MAE_Dataloader:
 
 train_loader = MAE_Dataloader(
     rootpath,
-    'test' ############ remember to change to train
+    'train'
 )
 
 test_loader = MAE_Dataloader(
