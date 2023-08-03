@@ -178,10 +178,11 @@ class Trainer:
             ascii=" >="
         )
         loop.set_description(f'Test Epoch {epoch_number}')
+        eval_iter = iter(eval_dataloader)
         total_eval_loss: float = 0.0
         for _ in loop:
             with torch.no_grad():
-                batch_data = next(eval_dataloader)
+                batch_data = next(eval_iter)
                 if len(self.model_kwargs) == 1:
                     outputs = self.model(
                         self.to_device(batch_data)
@@ -214,8 +215,9 @@ class Trainer:
             ascii=" >="
         )
         loop.set_description(f'Train Epoch {epoch_number}')
+        train_iter = iter(train_dataloader)
         for _ in loop:
-            batch_data = next(train_dataloader)
+            batch_data = next(train_iter)
             self.model.zero_grad()
             if len(self.model_kwargs) == 1:
                 outputs = self.model(
