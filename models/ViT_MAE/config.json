@@ -21,7 +21,7 @@
         "load_model_dir" : "",
         "enable_tensorboard" : true,
         "tensorboard_logdir" : "/nfs/home/clruben/workspace/nst/runs",
-        "tensorboard_log_frequency" : 5,
+        "tensorboard_log_frequency" : 25,
         "enable_tqdm" : false,
         "enable_warmup" : true,
         "warmup_steps" : 5000,
