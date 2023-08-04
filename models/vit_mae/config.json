@@ -1,0 +1,36 @@
+{
+    "model" : {
+        "img_size" : 512,
+        "patch_size" : 16,
+        "in_chans" : 1,
+        "encoder_embed_dim" : 1024,
+        "encoder_depth" : 12,
+        "encoder_num_heads" : 16,
+        "decoder_embed_dim" : 512,
+        "decoder_depth" : 12,
+        "decoder_num_heads"  : 16,
+        "mlp_ratio" : 4.0
+    },
+    "trainer" : {
+        "model_name" : "vit_mae",
+        "model_kwargs" : ["x", "input_type"],
+        "train_epochs" : 10,
+        "device" : "cuda:0",
+        "log_dir" : "/nfs/home/clruben/workspace/nst/models/vit_mae/logs",
+        "loading_model" : true,
+        "load_model_dir" : "models/vit_mae/checkpoints/vit_mae-08-04-2023-17_40_11",
+        "enable_tensorboard" : true,
+        "tensorboard_logdir" : "/nfs/home/clruben/workspace/nst/runs",
+        "tensorboard_log_frequency" : 375,
+        "enable_tqdm" : false,
+        "enable_warmup" : true,
+        "warmup_steps" : 5000,
+        "warmup_factor" : 10.0,
+        "learning_rate" : 1e-9,
+        "save_dir" : "/nfs/home/clruben/workspace/nst/models/vit_mae/checkpoints",
+        "enable_batch_checkpointing" : true,
+        "save_frequency" : 50000,
+        "enable_delete_worse_models" : false,
+        "max_models_saved" : 3
+    }
+}
