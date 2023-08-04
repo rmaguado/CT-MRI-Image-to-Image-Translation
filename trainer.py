@@ -34,11 +34,11 @@ class Trainer:
             enable_tqdm: Optional[bool] = True,
             enable_warmup: Optional[bool] = False,
             warmup_steps: Optional[int] = 1000,
+            warmup_factor: Optional[float] = 10.0,
             learning_rate: Optional[float] = 5e-4,
             save_dir: Optional[str] = "",
             enable_batch_checkpointing: Optional[bool] = True,
             save_frequency: Optional[int] = 5000,
-            warmup_factor: Optional[float] = 10.0,
             enable_delete_worse_models: Optional[bool] = False,
             max_models_saved: Optional[int] = 3
     ):
@@ -91,7 +91,7 @@ class Trainer:
             self.load_model(self.load_model_dir)
         
         for param_group in self.optim.param_groups:
-            param_group['lr'] = self.learning_rate / self.warmup_factor
+            param_group['lr'] = self.learning_rate
 
         if self.enable_delete_worse_models:
             self.best_model_logs: list = []
