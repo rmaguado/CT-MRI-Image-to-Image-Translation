@@ -7,19 +7,21 @@ import numpy as np
 import os
 from typing import Optional
 
-from torch.utils.tensorboard import SummaryWriter
 import torch
-import torch.optim as optim
 import torch.optim.lr_scheduler as lr_scheduler
+from torch.utils.tensorboard import SummaryWriter
+
 
 class Trainer:
+    """Trains a model.
+    """
     def __init__(
             self,
             model: torch.nn.Module,
             optim: torch.optim.Optimizer,
             config: dict,
             model_name: str,
-            model_kwargs: Optional[list] = ["x"],
+            model_kwargs: Optional[list],
             scheduler: Optional[lr_scheduler._LRScheduler] = None,
             train_epochs: Optional[int] = 5,
             device: Optional[str] = "cpu",
@@ -34,12 +36,12 @@ class Trainer:
             warmup_steps: Optional[int] = 1000,
             learning_rate: Optional[float] = 5e-4,
             save_dir: Optional[str] = "",
-            enable_batch_checkpointing : Optional[bool] = True,
-            save_frequency : Optional[int] = 5000,
+            enable_batch_checkpointing: Optional[bool] = True,
+            save_frequency: Optional[int] = 5000,
             warmup_factor: Optional[float] = 10.0,
             enable_delete_worse_models: Optional[bool] = False,
             max_models_saved: Optional[int] = 3
-        ):
+    ):
         self.start_timestamp: str = self.get_timestamp()
         logging.basicConfig(
             filename=os.path.join(log_dir, f'{self.start_timestamp}.txt'),
@@ -69,13 +71,13 @@ class Trainer:
         self.save_dir: str = save_dir
         self.enable_batch_checkpointing: bool = enable_batch_checkpointing
         self.save_frequency: int = save_frequency
-        self.warmup_factor:float = warmup_factor
+        self.warmup_factor: float = warmup_factor
         self.enable_delete_worse_models: bool = enable_delete_worse_models
         self.max_models_saved: int = max_models_saved
 
         self.model.to(self.device)
-        logging.info("%s Running on %s", self.get_timestamp() ,self.device)
-        
+        logging.info("%s Running on %s", self.get_timestamp(), self.device)
+
         self.batch_counter: int = 0
         if self.enable_tensorboard:
             self.writer: SummaryWriter = SummaryWriter(
@@ -88,6 +90,9 @@ class Trainer:
         if self.loading_model:
             self.load_model(self.load_model_dir)
         
+        for param_group in self.optim.param_groups:
+            param_group['lr'] = self.learning_rate / self.warmup_factor
+
         if self.enable_delete_worse_models:
             self.best_model_logs: list = []
 
@@ -97,10 +102,10 @@ class Trainer:
         if isinstance(data, np.ndarray):
             return torch.tensor(data).to(self.device)
         return data
-    
+
     def get_timestamp(self):
         return datetime.now().strftime('%m-%d-%Y-%H_%M_%S')
-    
+
     def get_iterator(self, dataloader, epoch, mode):
         if self.enable_tqdm:
             loop = tqdm(
@@ -113,7 +118,7 @@ class Trainer:
             loop.set_description(f'{mode} Epoch {epoch}')
             return loop
         return range(len(dataloader))
-    
+
     def load_model(self, load_model_dir: str):
         logging.info(
             "%s Loading model from %s",
@@ -156,25 +161,25 @@ class Trainer:
             {
                 'model_state_dict': self.model.state_dict(),
                 'optimizer_state_dict': self.optim.state_dict(),
-                'scheduler_state_dict': self.scheduler.state_dict() \
-                    if self.scheduler is not None else dict()
-            }, 
+                'scheduler_state_dict': self.scheduler.state_dict()
+                if self.scheduler is not None else dict()
+            },
             os.path.join(path, "parameters.torch")
         )
 
         logs: dict = {
             'epoch_number': epoch_number,
-            'batch_counter' : self.batch_counter,
+            'batch_counter': self.batch_counter,
             'loss': loss,
             'lr': self.optim.param_groups[0]['lr'],
-            'start_time' : self.start_timestamp
+            'start_time': self.start_timestamp
         }
 
         with open(
             os.path.join(path, "config.json"),
             "w", encoding="utf-8"
         ) as f:
-            json.dump(self.config, f)
+            json.dump(self.config, f, indent=4)
         with open(
             os.path.join(path, "logs.json"),
             "w", encoding="utf-8"
@@ -187,13 +192,13 @@ class Trainer:
     def create_checkpoint(self, epoch_number: int, loss: float):
         if self.enable_delete_worse_models:
             if len(self.best_model_logs) < self.max_models_saved or \
-            loss < max([save["loss"] for save in self.best_model_logs]):
+                    loss < max(save["loss"] for save in self.best_model_logs):
 
                 save_dir: str = self.save_model(epoch_number, loss)
 
                 self.best_model_logs.append({
                     "loss": loss,
-                    "save_dir" : save_dir
+                    "save_dir": save_dir
                 })
             if len(self.best_model_logs) > self.max_models_saved:
                 self.delete_worse_models()
@@ -202,11 +207,13 @@ class Trainer:
 
     def delete_worse_models(self):
         saved_model_losses = [x["loss"] for x in self.best_model_logs]
-        worst_model_idx: int = saved_model_losses.index(max(saved_model_losses))
+        worst_model_idx: int = saved_model_losses.index(
+            max(saved_model_losses)
+        )
         worst_save_dir: str = self.best_model_logs[worst_model_idx]["save_dir"]
         shutil.rmtree(worst_save_dir)
         del self.best_model_logs[worst_model_idx]
-        
+
     def step_lr_warmup(self):
         lr_factor: float = self.learning_rate / self.warmup_factor
         new_lr: float = lr_factor + (
@@ -234,20 +241,20 @@ class Trainer:
                     )
                 else:
                     outputs = self.model(
-                        **{kw : self.to_device(batch_data[i])\
-                        for i, kw in enumerate(self.model_kwargs)}
+                        **{kw: self.to_device(batch_data[i])
+                            for i, kw in enumerate(self.model_kwargs)}
                     )
                 loss = outputs.loss
                 if self.enable_tqdm:
                     loop.set_postfix(
-                        {"loss":loss.item()}
+                        {"loss": loss.item()}
                     )
                 total_eval_loss += loss.item()
         avg_eval_loss: float = total_eval_loss / len(eval_dataloader)
         if self.enable_tensorboard:
             self.eval_tensorboard(outputs)
         return avg_eval_loss
-    
+
     def train_tensorboard(self, outputs):
         loss = outputs.loss
         self.writer.add_scalar(
@@ -260,7 +267,7 @@ class Trainer:
             self.optim.param_groups[0]['lr'],
             self.batch_counter
         )
-    
+
     def train_loop(self, train_dataloader, epoch_number):
         self.model.train()
         loop = self.get_iterator(train_dataloader, epoch_number, "Train")
@@ -274,8 +281,8 @@ class Trainer:
                 )
             else:
                 outputs = self.model(
-                    **{kw : self.to_device(batch_data[i])\
-                    for i, kw in enumerate(self.model_kwargs)}
+                    **{kw: self.to_device(batch_data[i])
+                        for i, kw in enumerate(self.model_kwargs)}
                 )
             loss = outputs.loss
             loss.backward()
@@ -286,8 +293,8 @@ class Trainer:
             self.optim.step()
 
             if self.enable_batch_checkpointing and \
-            self.batch_counter % self.save_frequency == 0 and \
-            self.batch_counter != 0:
+                    self.batch_counter % self.save_frequency == 0 and \
+                    self.batch_counter != 0:
                 self.create_checkpoint(epoch_number, loss.item())
 
             if self.enable_warmup and self.batch_counter < self.warmup_steps:
@@ -296,13 +303,13 @@ class Trainer:
                 self.scheduler.step()
 
             if self.enable_tensorboard and \
-            self.batch_counter % self.tensorboard_log_frequency == 0:
+                    self.batch_counter % self.tensorboard_log_frequency == 0:
                 self.train_tensorboard(outputs)
 
             self.batch_counter += 1
 
     def train(self, train_dataloader, eval_dataloader):
-        for epoch_number in range(1,self.train_epochs+1):
+        for epoch_number in range(1, self.train_epochs+1):
             logging.info(
                 "%s Starting epoch %s", self.get_timestamp(), epoch_number
             )
