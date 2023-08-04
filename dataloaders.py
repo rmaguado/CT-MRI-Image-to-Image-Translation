@@ -1,16 +1,29 @@
+"""Dataloaders for the NST project.
+"""
+
 from typing import Optional
-import numpy as np
 from glob import glob
 import os
 
+import numpy as np
+
+
 class Dataset:
+    """Loads a dataset from a .npy file.
+
+    Args:
+        data_root_path (str): Path to the directory containing the dataset
+        dataset (str): Name of the dataset to load. e.g. "train" or "test"
+        mode (str): Name of the dataset to load. e.g. "train" or "test"
+        enable_data_augmentation (bool): Whether to enable data augmentation
+    """
     def __init__(
             self,
             data_root_path: str,
             dataset: str = "train",
             mode: str = "CT",
             enable_data_augmentation: bool = False
-        ):
+    ):
         dataset_path = os.path.join(data_root_path, dataset)
         self.enable_data_augmentation = enable_data_augmentation
 
@@ -18,14 +31,16 @@ class Dataset:
             os.path.join(dataset_path, mode, "*.npy")
         )
         if not paths_to_database:
-            raise ValueError("Data not found. Check source directory provided.")
+            raise ValueError(
+                "Data not found. Check source directory provided."
+            )
 
         data_dir = paths_to_database[0]
         data_shape = tuple(
             [
                 int(x) for x in os.path.basename(
                     data_dir
-                ).replace(".npy","").split("_")
+                ).replace(".npy", "").split("_")
             ]
         )
         self.batches = np.memmap(
@@ -52,12 +67,16 @@ class Dataset:
             batch_data = np.flip(batch_data, axis=3)
 
         return batch_data
+
     def __getitem__(self, idx):
         return self.batches[idx]
+
     def __len__(self):
         return self.total_batches
+
     def __iter__(self):
         return self
+
     def __next__(self):
         if self.counter == self.total_batches:
             self.counter = 0
@@ -66,16 +85,17 @@ class Dataset:
         if self.enable_data_augmentation:
             return self.data_augmentation(batch)
         return batch
-    
+
+
 class Dataloader:
     """Pools together MRI and CT scans for masked modeling.
-    
+
     Assumes that data_root_path contains a directory called dataset, which
     contains two subdirectories, CT and MR, which contain .npy files. The names
-    of the .npy files should contain the shape of the data, e.g. 
-    100_1_256_256.npy. The number of batches in each dataset does not need to be
-    the same. 
-    
+    of the .npy files should contain the shape of the data, e.g.
+    100_1_256_256.npy. The number of batches in each dataset does not need to
+    be the same.
+
     Args:
         data_root_path (str): Path to the directory containing the dataset
         dataset_name (str): Name of the dataset to load. e.g. "train" or "test"
@@ -85,7 +105,7 @@ class Dataloader:
             data_root_path: str,
             dataset_name: str = "train",
             size_limit: Optional[int] = None
-        ):
+    ):
         self.loaders = [
             Dataset(data_root_path, dataset_name, "CT"),
             Dataset(data_root_path, dataset_name, "MR")
@@ -99,10 +119,13 @@ class Dataloader:
         self.mode = True
         self.counter = 0
         self.masking_ratio = 0.75
+
     def __len__(self):
         return self.loop_length
+
     def __iter__(self):
         return self
+
     def __next__(self):
         self.mode = not self.mode
         if self.counter == self.loop_length:
@@ -111,15 +134,17 @@ class Dataloader:
         mode = ["CT", "MR"][self.mode]
         return next_item, mode
 
+
 if __name__ == "__main__":
     from tqdm import tqdm
     import time
+
     t0 = time.time()
-    source = "/nfs/home/clruben/workspace/nst/data/preprocessed/"
-    testloader = Dataset(source, "train", "CT")
+    SOURCE = "/nfs/home/clruben/workspace/nst/data/preprocessed/"
+    testloader = Dataset(SOURCE, "train", "CT")
     print(time.time()-t0)
     t0 = time.time()
     loop = tqdm(range(len(testloader)))
-    for batch in loop:
+    for batch_data in loop:
         x = next(testloader)
     print(time.time()-t0)

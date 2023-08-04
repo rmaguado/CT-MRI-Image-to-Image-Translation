@@ -5,7 +5,7 @@ from timm.models.vision_transformer import PatchEmbed, Block
 
 from models.utils.pos_embed import get_2d_sincos_pos_embed
 from models.utils.vit_blocks import _init_weights
-from models.ViT_MAE.vit_blocks import random_masking, EncoderViT, DecoderViT
+from models.vit_mae.vit_blocks import random_masking, EncoderViT, DecoderViT
 
 class ViTOutputs:
     def __init__(self, loss, pred, mask):

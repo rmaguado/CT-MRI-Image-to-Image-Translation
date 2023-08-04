@@ -2,11 +2,11 @@ import json
 from torch.optim import AdamW
 
 from dataloaders import Dataloader
-from models.ViT_MAE.vit_translation import ViT_Translation
+from models.vit_mae.vit_translation import ViT_Translation
 from trainer import Trainer
 
 data_root_path = "/nfs/home/clruben/workspace/nst/data/"
-config_path = "/nfs/home/clruben/workspace/nst/models/ViT_MAE/config.json"
+config_path = "/nfs/home/clruben/workspace/nst/models/vit_mae/config.json"
 
 with open(config_path) as file:
     config = json.load(file)

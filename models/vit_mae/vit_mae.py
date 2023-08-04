@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from models.ViT_MAE.vit_blocks import EncoderViT, DecoderViT
+from models.vit_mae.vit_blocks import EncoderViT, DecoderViT
 
 class ViTOutputs:
     def __init__(self, loss, pred, mask):
@@ -9,7 +9,7 @@ class ViTOutputs:
         self.pred = pred
         self.mask = mask
 
-class ViT_MAE(nn.Module):
+class VitMae(nn.Module):
     """ Masked Autoencoder with VisionTransformer backbone
     """
     def __init__(
@@ -117,7 +117,7 @@ if __name__ == "__main__":
 
     test_image = torch.rand(32, in_chans, 512, 512).to(device)
     
-    model = ViT_MAE(img_size=512, in_chans=in_chans)
+    model = VitMae(img_size=512, in_chans=in_chans)
 
     model.to(device)
     model.train()
