@@ -74,7 +74,7 @@ class Trainer:
         self.max_models_saved: int = max_models_saved
 
         self.model.to(self.device)
-        logging.info("Running on %s", self.device)
+        logging.info("%s Running on %s", self.get_timestamp() ,self.device)
         
         self.batch_counter: int = 0
         if self.enable_tensorboard:
@@ -115,7 +115,11 @@ class Trainer:
         return range(len(dataloader))
     
     def load_model(self, load_model_dir: str):
-        logging.info(f"Loading model from {load_model_dir}")
+        logging.info(
+            "%s Loading model from %s",
+            self.get_timestamp(),
+            load_model_dir
+        )
         checkpoint: dict = torch.load(
             os.path.join(load_model_dir, "parameters.torch")
         )
@@ -139,7 +143,7 @@ class Trainer:
         ) as file:
             logs: dict = json.load(file)
         self.batch_counter: int = logs["batch_counter"]
-        logging.info("Loaded model from checkpoint.")
+        logging.info("%s Loaded model from checkpoint.", self.get_timestamp())
 
     def save_model(self, epoch_number: int, loss: float):
         save_timestamp: str = self.get_timestamp()
@@ -177,7 +181,7 @@ class Trainer:
         ) as f:
             json.dump(logs, f, indent=4)
 
-        logging.info("Saved model checkpoint.")
+        logging.info("%s Saved model checkpoint.", self.get_timestamp())
         return path
     
     def create_checkpoint(self, epoch_number: int, loss: float):
