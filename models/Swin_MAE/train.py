@@ -1,7 +1,7 @@
 import json
 import numpy as np
 from torch.optim import AdamW
-from dataloader import Dataloader
+from dataloaders import Dataloader
 from tqdm import tqdm
 
 from models.Swin_MAE.swin_translation import SwinTranslation
