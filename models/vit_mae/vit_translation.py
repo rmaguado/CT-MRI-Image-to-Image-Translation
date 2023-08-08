@@ -1,3 +1,5 @@
+from typing import Optional
+
 import torch
 import torch.nn as nn
 
@@ -13,28 +15,33 @@ class ViTOutputs:
         self.pred = pred
         self.mask = mask
 
-class ViT_Translation(nn.Module):
+class VitTranslation(nn.Module):
     """ Masked Autoencoder with VisionTransformer backbone
     """
     def __init__(
         self,
-        img_size=512,
-        patch_size=16,
-        in_chans=1,
-        encoder_embed_dim=1024,
-        encoder_depth=24,
-        encoder_num_heads=16,
-        decoder_embed_dim=512,
-        decoder_depth=8,
-        decoder_num_heads=16,
-        mlp_ratio=4.,
-        norm_layer=nn.LayerNorm,
-        norm_pix_loss=False
+        img_size: int = 512,
+        patch_size: int = 16,
+        in_chans: int = 1,
+        encoder_embed_dim: int = 1024,
+        encoder_depth: int = 24,
+        encoder_num_heads: int = 16,
+        decoder_embed_dim: int = 512,
+        decoder_depth: int = 8,
+        decoder_num_heads: int = 16,
+        mlp_ratio: float = 4.0,
+        norm_layer = nn.LayerNorm,
+        norm_pix_loss: bool = False,
+        mask_ratio: float = 0.75,
+        exclude_mask_loss: bool = False,
+        use_output_conv: bool = False
     ):
         super().__init__()
 
         self.patch_size = patch_size
         self.in_chans = in_chans
+        self.mask_ratio = mask_ratio
+        self.exclude_mask_loss = exclude_mask_loss
 
         self.mode = "masked_modeling"
 
@@ -58,7 +65,8 @@ class ViT_Translation(nn.Module):
                     decoder_depth=decoder_depth,
                     decoder_num_heads=decoder_num_heads,
                     mlp_ratio=mlp_ratio,
-                    norm_layer=norm_layer
+                    norm_layer=norm_layer,
+                    use_output_conv=use_output_conv
                 ) for modality in ["CT", "MR"]
         })
 
@@ -92,11 +100,11 @@ class ViT_Translation(nn.Module):
         imgs = x.reshape(shape=(x.shape[0], self.in_chans, h * p, h * p))
         return imgs
 
-    def forward_loss(self, imgs, pred, mask):
+    def forward_loss(self, imgs, pred, mask: Optional[torch.Tensor] = None):
         """
         imgs: [N, channels, H, W]
         pred: [N, L, p*p*channels]
-        mask: [N, L], 0 is keep, 1 is remove, 
+        mask: [N, L], 0 is keep, 1 is remove, optional
         """
         target = self.patchify(imgs)
         if self.norm_pix_loss:
@@ -105,22 +113,31 @@ class ViT_Translation(nn.Module):
             target = (target - mean) / (var + 1.e-6)**.5
 
         loss = (pred - target) ** 2
-        loss = loss.mean(dim=-1)  # [N, L], mean loss per patch
 
-        loss = (loss * mask).sum() / mask.sum()  # mean loss on removed patches
-        return loss
+        if self.exclude_mask_loss:
+            # [N, L], mean loss per patch: 
+            loss = loss.mean(dim=-1)
+            return (loss * mask).sum() / mask.sum()
+        return loss.mean()
 
-    def forward(self, x, input_type="CT", mask_ratio=0.75):
+    def forward(self, x, input_type="CT"):
         if self.mode == "masked_modeling":
-            latent, mask, ids_restore = self.encoder(x, mask_ratio)
-            pred = self.decoders[input_type](latent, ids_restore) # [N, L, p*p*channels]
+            latent, mask, ids_restore = self.encoder(x, self.mask_ratio)
+            # [N, L, p*p*channels] :
+            pred = self.decoders[input_type](latent, ids_restore)
         elif self.mode == "translation":
             latent, mask, ids_restore = self.encoder(x, 0)
 
-            first_decoder = [x for x in self.decoders.keys() if x != input_type][0]
-            transfer_pred = self.decoders[first_decoder](latent, ids_restore) # [N, L, p*p*channels]
-            latent, mask, ids_restore = self.encoder(self.unpatchify(transfer_pred), 0)
-            pred = self.decoders[input_type](latent, ids_restore) # [N, L, p*p*channels]
+            first_decoder = [
+                x for x in self.decoders.keys() if x != input_type
+            ][0]
+            # [N, L, p*p*channels] :
+            transfer_pred = self.decoders[first_decoder](latent, ids_restore)
+            latent, mask, ids_restore = self.encoder(
+                self.unpatchify(transfer_pred), 0
+            )
+            # [N, L, p*p*channels] :
+            pred = self.decoders[input_type](latent, ids_restore) 
 
         loss = self.forward_loss(x, pred, mask)
         return ViTOutputs(loss, pred, mask)
@@ -131,7 +148,7 @@ if __name__ == "__main__":
 
     test_image = torch.rand(32, in_chans, 512, 512).to(device)
     
-    model = ViT_Translation(img_size=512, in_chans=in_chans)
+    model = VitTranslation(img_size=512, in_chans=in_chans)
 
     model.to(device)
     model.train()

@@ -109,7 +109,9 @@ class DecoderViT(nn.Module):
         decoder_depth=8,
         decoder_num_heads=16,
         mlp_ratio=4.,
-        norm_layer=nn.LayerNorm
+        norm_layer=nn.LayerNorm,
+        use_output_conv=False,
+        output_conv_dim=32,
     ):
         super().__init__()
 
@@ -126,7 +128,17 @@ class DecoderViT(nn.Module):
             for i in range(decoder_depth)])
 
         self.decoder_norm = norm_layer(decoder_embed_dim)
-        self.decoder_pred = nn.Linear(decoder_embed_dim, patch_size**2 * in_chans, bias=True) # decoder to patch
+        
+         # decoder to patch
+        
+        if use_output_conv:
+            self.decoder_pred = nn.Linear(decoder_embed_dim, patch_size**2 * output_conv_dim, bias=True)
+            self.output_conv = nn.Sequential(
+                nn.Linear(output_conv_dim, output_conv_dim),
+                nn.Linear(output_conv_dim, in_chans)
+            )
+        else:
+            self.decoder_pred = nn.Linear(decoder_embed_dim, patch_size**2 * in_chans, bias=True)
 
         self.initialize_weights()
 

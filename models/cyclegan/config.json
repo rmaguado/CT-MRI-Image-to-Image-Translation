@@ -20,13 +20,13 @@
         "init_gain": 0.02,
         "pool_size": 50,
         "gpu_ids": [0],
-        "device": "cuda:0",
+        "device": "cuda:1",
         "isTrain": true
     },
     "trainer" : {
-        "model_name" : "vit_mae",
+        "model_name" : "cyclegan",
         "train_epochs" : 5,
-        "device" : "cuda:0",
+        "device" : "cuda:1",
         "log_dir" : "/nfs/home/clruben/workspace/nst/models/cyclegan/logs",
         "loading_model" : false,
         "load_model_dir" : "",

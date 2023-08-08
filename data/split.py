@@ -12,7 +12,7 @@ import random
 from tqdm import tqdm
 import cv2
 
-SAVE_ROOT = "/nfs/home/clruben/workspace/nst/data/"
+SAVE_ROOT = "/nfs/home/clruben/workspace/nst/data/MR_fix"
 BATCH_SIZE = 16
 IMG_SIZE = 512
 DATASET_RATIOS = {
@@ -28,13 +28,10 @@ def count_total_slices(sources, mode):
     loop = tqdm(range(len(sources)))
     for i in loop:
         try:
-            filepath = os.path.join(
-                sources.iloc[i]["FinalPath"],
-                "image.nii.gz"
-            )
+            filepath = sources.iloc[i]["FinalPath"]
             nii_ = nib.load(filepath)
             image = nii_.get_fdata()
-        except:
+        except Exception as e:
             fails += 1
             fail_paths.append(sources.iloc[i]["FinalPath"])
             continue
@@ -136,10 +133,7 @@ def main(dataset_root, mode="CT"):
     val_counter = 0
 
     for i in loop:
-        filename = os.path.join(
-            sources.iloc[i]["FinalPath"],
-            "image.nii.gz"
-        )
+        filename = sources.iloc[i]["FinalPath"]
         nii_ = nib.load(filename)
         try:
             nii_data = nii_.get_fdata().astype(np.float32)

@@ -69,9 +69,10 @@ class CycleGANModel(nn.Module):
 
         self.visual_names = visual_names_a + visual_names_b
         if self.isTrain:
-            self.model_names = ['G_A', 'G_B', 'D_A', 'D_B']
+            self.model_names = ['generator_a', 'generator_b',
+                                'discriminator_a', 'discriminator_b']
         else:
-            self.model_names = ['G_A', 'G_B']
+            self.model_names = ['generator_a', 'generator_b']
 
         self.generator_a = networks.define_G(
             in_channels,
@@ -294,7 +295,7 @@ class CycleGANModel(nn.Module):
         """Make models eval mode during test time"""
         for name in self.model_names:
             if isinstance(name, str):
-                net = getattr(self, 'net' + name)
+                net = getattr(self, name)
                 net.eval()
 
     def test(self):

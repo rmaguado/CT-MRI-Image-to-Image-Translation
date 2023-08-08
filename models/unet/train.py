@@ -1,28 +1,29 @@
 import json
 from torch.optim import AdamW
 
-from dataloaders import Dataloader
-from models.vit_mae.vit_translation import VitTranslation
+from models.unet.unet_dataloader import UNetDataloader
+from models.unet.unet_model import UNet
 from trainer import Trainer
 
-data_root_path = "/nfs/home/clruben/workspace/nst/data/"
-config_path = "/nfs/home/clruben/workspace/nst/models/vit_mae/config.json"
+data_root_path = "/nfs/home/clruben/workspace/nst/data/reg"
+config_path = "/nfs/home/clruben/workspace/nst/models/unet/config.json"
 
 with open(config_path) as file:
     config = json.load(file)
 lr = config["trainer"]["learning_rate"]
 
-train_loader = Dataloader(
+train_loader = UNetDataloader(
     data_root_path,
-    'train'
+    'train',
+    enable_data_augmentation=True
 )
-test_loader = Dataloader(
+test_loader = UNetDataloader(
     data_root_path,
     'test',
-    size_limit=500
+    enable_data_augmentation=False
 )
 
-model = VitTranslation(**config["model"])
+model = UNet(**config["model"])
 optim = AdamW(model.parameters(), lr=lr)
 
 trainer = Trainer(

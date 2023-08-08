@@ -74,6 +74,8 @@ class Trainer:
         self.warmup_factor: float = warmup_factor
         self.enable_delete_worse_models: bool = enable_delete_worse_models
         self.max_models_saved: int = max_models_saved
+        
+        self.warmup_batch_counter: int = 0
 
         self.model.to(self.device)
         logging.info("%s Running on %s", self.get_timestamp(), self.device)
@@ -83,7 +85,7 @@ class Trainer:
             self.writer: SummaryWriter = SummaryWriter(
                 log_dir=os.path.join(
                     self.tensorboard_logdir,
-                    self.start_timestamp
+                    self.model_name + self.start_timestamp
                 )
             )
 
@@ -100,7 +102,7 @@ class Trainer:
         if torch.is_tensor(data):
             return data.to(self.device)
         if isinstance(data, np.ndarray):
-            return torch.tensor(data).to(self.device)
+            return torch.tensor(data.copy()).to(self.device)
         return data
 
     def get_timestamp(self):
@@ -297,8 +299,10 @@ class Trainer:
                     self.batch_counter != 0:
                 self.create_checkpoint(epoch_number, loss.item())
 
-            if self.enable_warmup and self.batch_counter < self.warmup_steps:
+            if self.enable_warmup and \
+                    self.warmup_batch_counter < self.warmup_steps:
                 self.step_lr_warmup()
+                self.warmup_batch_counter += 1
             elif self.scheduler is not None:
                 self.scheduler.step()
 

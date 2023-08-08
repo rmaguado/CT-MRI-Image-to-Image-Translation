@@ -9,12 +9,16 @@ class BlankOptim:
     """Optimizer that does nothing.
     """
     def __init__(self):
-        self.state_dict = {}
         self.param_groups = [
             {
                 "lr": 0
             }
         ]
+
+    def state_dict(self):
+        """Returns an empty state dict.
+        """
+        return {}
 
     def load_state_dict(self, state_dict):
         """Clears the state dict input in trainer.

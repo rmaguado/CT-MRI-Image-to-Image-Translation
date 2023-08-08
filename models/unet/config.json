@@ -1,0 +1,29 @@
+{
+    "model" : {
+        "in_channels": 1,
+        "base_dim" : 32,
+        "bilinear": true
+    },
+    "trainer" : {
+        "model_name" : "unet",
+        "train_epochs" : 5,
+        "device" : "cuda:0",
+        "log_dir" : "/nfs/home/clruben/workspace/nst/models/unet/logs",
+        "loading_model" : false,
+        "load_model_dir" : "",
+        "enable_tensorboard" : true,
+        "tensorboard_logdir" : "/nfs/home/clruben/workspace/nst/runs",
+        "tensorboard_log_frequency" : 75,
+        "enable_tqdm" : false,
+        "enable_warmup" : true,
+        "warmup_steps" : 5000,
+        "warmup_factor" : 10.0,
+        "learning_rate" : 1e-5,
+        "save_dir" : "/nfs/home/clruben/workspace/nst/models/unet/checkpoints",
+        "enable_batch_checkpointing" : true,
+        "save_frequency" : 1000,
+        "enable_delete_worse_models" : true,
+        "max_models_saved" : 3,
+        "model_kwargs" : ["x", "target"]
+    }
+}

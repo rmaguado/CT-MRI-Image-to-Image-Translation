@@ -118,7 +118,6 @@ class Dataloader:
             self.loop_length = size_limit
         self.mode = True
         self.counter = 0
-        self.masking_ratio = 0.75
 
     def __len__(self):
         return self.loop_length
