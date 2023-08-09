@@ -114,6 +114,10 @@ class DecoderViT(nn.Module):
         output_conv_dim=32,
     ):
         super().__init__()
+        
+        self.patch_size = patch_size
+        self.in_chans = in_chans
+        self.use_output_conv = use_output_conv
 
         self.num_patches = ( img_size // patch_size ) ** 2
 
@@ -134,8 +138,22 @@ class DecoderViT(nn.Module):
         if use_output_conv:
             self.decoder_pred = nn.Linear(decoder_embed_dim, patch_size**2 * output_conv_dim, bias=True)
             self.output_conv = nn.Sequential(
-                nn.Linear(output_conv_dim, output_conv_dim),
-                nn.Linear(output_conv_dim, in_chans)
+                nn.Conv2d(
+                    in_channels=output_conv_dim,
+                    out_channels=output_conv_dim,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    padding_mode='reflect'
+                ),
+                nn.Conv2d(
+                    in_channels=output_conv_dim,
+                    out_channels=in_chans,
+                    kernel_size=1,
+                    stride=1,
+                    padding=1,
+                    padding_mode='reflect'
+                )
             )
         else:
             self.decoder_pred = nn.Linear(decoder_embed_dim, patch_size**2 * in_chans, bias=True)
@@ -153,6 +171,20 @@ class DecoderViT(nn.Module):
 
         # initialize nn.Linear and nn.LayerNorm
         self.apply(_init_weights)
+        
+    def unpatchify(self, x):
+        """
+        x: (N, L, patch_size**2 *channels)
+        imgs: (N, channels, H, W)
+        """
+        p = self.patch_size
+        h = w = int(x.shape[1]**.5)
+        assert h * w == x.shape[1]
+        
+        x = x.reshape(shape=(x.shape[0], h, w, p, p, self.in_chans))
+        x = torch.einsum('nhwpqc->nchpwq', x)
+        imgs = x.reshape(shape=(x.shape[0], self.in_chans, h * p, h * p))
+        return imgs
 
     def forward(self, x, ids_restore):
         # embed tokens
@@ -177,5 +209,10 @@ class DecoderViT(nn.Module):
 
         # remove cls token
         x = x[:, 1:, :]
+        
+        x = self.unpatchify(x)
+        
+        if self.use_output_conv:
+            x = self.output_conv(x)
 
         return x

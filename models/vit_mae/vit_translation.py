@@ -34,7 +34,8 @@ class VitTranslation(nn.Module):
         norm_pix_loss: bool = False,
         mask_ratio: float = 0.75,
         exclude_mask_loss: bool = False,
-        use_output_conv: bool = False
+        use_output_conv: bool = False,
+        output_conv_dim: int = 32
     ):
         super().__init__()
 
@@ -66,7 +67,8 @@ class VitTranslation(nn.Module):
                     decoder_num_heads=decoder_num_heads,
                     mlp_ratio=mlp_ratio,
                     norm_layer=norm_layer,
-                    use_output_conv=use_output_conv
+                    use_output_conv=use_output_conv,
+                    output_conv_dim=output_conv_dim
                 ) for modality in ["CT", "MR"]
         })
 
@@ -100,13 +102,14 @@ class VitTranslation(nn.Module):
         imgs = x.reshape(shape=(x.shape[0], self.in_chans, h * p, h * p))
         return imgs
 
-    def forward_loss(self, imgs, pred, mask: Optional[torch.Tensor] = None):
+    def forward_loss(self, imgs, pred, mask):
         """
         imgs: [N, channels, H, W]
-        pred: [N, L, p*p*channels]
-        mask: [N, L], 0 is keep, 1 is remove, optional
+        pred: [N, channels, H, W]
+        mask: [N, L], 0 is keep, 1 is remove
         """
         target = self.patchify(imgs)
+        pred = self.patchify(pred)
         if self.norm_pix_loss:
             mean = target.mean(dim=-1, keepdim=True)
             var = target.var(dim=-1, keepdim=True)
@@ -134,7 +137,7 @@ class VitTranslation(nn.Module):
             # [N, L, p*p*channels] :
             transfer_pred = self.decoders[first_decoder](latent, ids_restore)
             latent, mask, ids_restore = self.encoder(
-                self.unpatchify(transfer_pred), 0
+                transfer_pred, 0
             )
             # [N, L, p*p*channels] :
             pred = self.decoders[input_type](latent, ids_restore) 
