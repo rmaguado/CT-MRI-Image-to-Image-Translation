@@ -8,7 +8,6 @@ import sys
 import numpy as np
 import nibabel as nib
 import pandas as pd
-import random
 from tqdm import tqdm
 import cv2
 
@@ -91,7 +90,7 @@ def main(dataset_root, mode="CT"):
 
     sources = pd.read_csv(dataset_root)
 
-    total_slices = count_total_slices(sources, mode)
+    total_slices = 1222863 #count_total_slices(sources, mode)
     print(f"Total slices: {total_slices}")
 
 
@@ -122,9 +121,8 @@ def main(dataset_root, mode="CT"):
         (val_batches, BATCH_SIZE, 1, IMG_SIZE, IMG_SIZE)
     )
 
-    rng = np.random.default_rng()
     dataset_indexes = list(range(len(sources)))
-    random.shuffle(dataset_indexes)
+    #random.shuffle(dataset_indexes)
     loop = tqdm(dataset_indexes)
 
     batch_counter = 0
