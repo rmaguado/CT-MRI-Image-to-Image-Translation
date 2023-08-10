@@ -35,7 +35,7 @@ def count_total_slices(sources, mode):
             fail_paths.append(sources.iloc[i]["FinalPath"])
             continue
         if mode == "MR":
-            if len(image.shape) > 3 and np.min(image) < 0:
+            if len(image.shape) > 3 or np.min(image) < 0:
                 continue
         total_slices += min(image.shape)
     if fails > 0:
@@ -90,7 +90,7 @@ def main(dataset_root, mode="CT"):
 
     sources = pd.read_csv(dataset_root)
 
-    total_slices = 1222863 #count_total_slices(sources, mode)
+    total_slices = count_total_slices(sources, mode)
     print(f"Total slices: {total_slices}")
 
 
@@ -163,6 +163,6 @@ def main(dataset_root, mode="CT"):
             if batch_counter == BATCH_SIZE:
                 break
 
-# python3 split.py /nfs/rwork/DATABASES_OPENSOURCE/TCIA_anon/CT_selection.csv CT
+# python3 split.py /nfs/rwork/DATABASES_OPENSOURCE/TCIA_anon/MR_selection.csv MR
 if __name__ == "__main__":
     main(sys.argv[1], sys.argv[2])
