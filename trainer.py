@@ -97,6 +97,12 @@ class Trainer:
 
         if self.enable_delete_worse_models:
             self.best_model_logs: list = []
+            
+    def reset_warmup(self):
+        self.warmup_batch_counter: int = 0
+        
+    def clear_best_models(self):
+        self.best_model_logs: list = []
 
     def to_device(self, data):
         if torch.is_tensor(data):

@@ -28,5 +28,7 @@ trainer = MaeGanTrainer(
 )
 
 trainer.train(train_loader)
-#model.mode = "translation"
-#trainer.train(testloader, testloader)
+#model.set_mode("translation")
+#trainer.restart_warmup()
+#trainer.clear_best_models()
+#trainer.train(train_loader)
