@@ -4,11 +4,23 @@ import torch.nn as nn
 from models.mae_gan.blocks import EncoderViT, DecoderViT, DiscriminatorViT
 
 class MaeGanOutputs:
-    def __init__(self, loss, pred, mask, reconstruction_loss):
+    def __init__(
+        self,
+        loss,
+        pred,
+        mask,
+        reconstruction_loss=None,
+        adversarial_loss=None,
+        discriminator_real_loss=None,
+        discriminator_fake_loss=None
+    ):
         self.loss = loss
         self.pred = pred
         self.mask = mask
         self.reconstruction_loss = reconstruction_loss
+        self.adversarial_loss = adversarial_loss
+        self.discriminator_real_loss = discriminator_real_loss
+        self.discriminator_fake_loss = discriminator_fake_loss
 
 class MaeGan(nn.Module):
     """Masked Autoencoder with VisionTransformer backbone
@@ -82,6 +94,22 @@ class MaeGan(nn.Module):
         )
 
         self.norm_pix_loss = norm_pix_loss
+        
+    def set_mode(self, mode):
+        assert mode in ["masked_modeling", "translation"]
+        self.mode = mode
+        if mode == "translation":
+            # freeze weights for both decoders
+            for decoder in self.decoders.values():
+                for param in decoder.parameters():
+                    param.requires_grad = False
+            self.discriminator.to("cpu")
+            for param in self.discriminator.parameters():
+                param.requires_grad = False
+        elif mode == "masked_modeling":
+            raise NotImplementedError(
+                "Re-initialize module to unfreeze correct weights"
+            )
 
     def patchify(self, imgs):
         """Converts images to patches
@@ -232,7 +260,13 @@ class MaeGan(nn.Module):
                 real_discriminator_loss + fake_discriminator_loss
             )
 
-        return MaeGanOutputs(loss, pred, mask, reconstruction_loss)
+        return MaeGanOutputs(
+            loss, pred, mask,
+            reconstruction_loss,
+            adversarial_loss,
+            real_discriminator_loss,
+            fake_discriminator_loss
+        )
     
     def forward_translation(self, x, input_type):
         latent, mask, ids_restore = self.encoder(x, 0)
