@@ -137,7 +137,7 @@ class Trainer:
             checkpoint['optimizer_state_dict']
         )
         if self.scheduler is not None:
-            if "scheduler_state_dict" in checkpoint.keys():
+            if checkpoint["scheduler_state_dict"] is not dict():
                 self.scheduler.load_state_dict(
                     checkpoint['scheduler_state_dict']
                 )
@@ -191,7 +191,14 @@ class Trainer:
         logging.info("%s Saved model checkpoint.", self.get_timestamp())
         return path
     
-    def create_checkpoint(self, epoch_number: int, loss: float):
+    def create_checkpoint(
+            self,
+            epoch_number: int,
+            outputs = None,
+            loss: float = None
+        ):
+        if outputs is not None:
+            loss = outputs.loss.item()
         if self.enable_delete_worse_models:
             if len(self.best_model_logs) < self.max_models_saved or \
                     loss < max(save["loss"] for save in self.best_model_logs):
@@ -297,7 +304,7 @@ class Trainer:
             if self.enable_batch_checkpointing and \
                     self.batch_counter % self.save_frequency == 0 and \
                     self.batch_counter != 0:
-                self.create_checkpoint(epoch_number, loss.item())
+                self.create_checkpoint(epoch_number, outputs=outputs)
 
             if self.enable_warmup and \
                     self.warmup_batch_counter < self.warmup_steps:
@@ -330,5 +337,5 @@ class Trainer:
                     self.get_timestamp(), loss_str
                 )
                 if not self.enable_batch_checkpointing:
-                    self.create_checkpoint(epoch_number, eval_loss)
+                    self.create_checkpoint(epoch_number, loss=eval_loss)
         logging.info("%s Finished training. Exiting.", self.get_timestamp())
