@@ -4,10 +4,11 @@ import torch.nn as nn
 from models.mae_gan.blocks import EncoderViT, DecoderViT, DiscriminatorViT
 
 class MaeGanOutputs:
-    def __init__(self, loss, pred, mask):
+    def __init__(self, loss, pred, mask, reconstruction_loss):
         self.loss = loss
         self.pred = pred
         self.mask = mask
+        self.reconstruction_loss = reconstruction_loss
 
 class MaeGan(nn.Module):
     """Masked Autoencoder with VisionTransformer backbone
@@ -23,7 +24,9 @@ class MaeGan(nn.Module):
         decoder_embed_dim: int = 512,
         decoder_depth: int = 8,
         decoder_num_heads: int = 16,
+        discriminator_embed_dim: int = 512,
         discriminator_depth: int = 4,
+        discriminator_num_heads: int = 16,
         mlp_ratio: float = 4.0,
         norm_layer = nn.LayerNorm,
         norm_pix_loss: bool = False,
@@ -67,8 +70,12 @@ class MaeGan(nn.Module):
         })
         
         self.discriminator = DiscriminatorViT(
+            img_size=img_size,
+            patch_size=patch_size,
+            in_chans=in_chans,
             encoder_embed_dim=encoder_embed_dim,
-            encoder_num_heads=encoder_num_heads,
+            discriminator_embed_dim=discriminator_embed_dim,
+            discriminator_num_heads=discriminator_num_heads,
             discriminator_depth=discriminator_depth,
             mlp_ratio=mlp_ratio,
             norm_layer=norm_layer
@@ -77,9 +84,12 @@ class MaeGan(nn.Module):
         self.norm_pix_loss = norm_pix_loss
 
     def patchify(self, imgs):
-        """
-        imgs: (N, channels, H, W)
-        x: (N, L, patch_size**2 *channels)
+        """Converts images to patches
+        
+        Args:
+            imgs (torch.Tensor): [N, channels, H, W]
+        Returns:
+            x (torch.Tensor): [N, L, patch_size**2 *channels]
         """
         p = self.patch_size
         assert imgs.shape[2] == imgs.shape[3] and imgs.shape[2] % p == 0
@@ -91,9 +101,12 @@ class MaeGan(nn.Module):
         return x
 
     def unpatchify(self, x):
-        """
-        x: (N, L, patch_size**2 *channels)
-        imgs: (N, channels, H, W)
+        """Converts patches to images
+        
+        Args:
+            x (torch.Tensor): [N, L, patch_size**2 *channels]
+        Returns:
+            imgs (torch.Tensor): [N, channels, H, W]
         """
         p = self.patch_size
         h = w = int(x.shape[1]**.5)
@@ -105,13 +118,16 @@ class MaeGan(nn.Module):
         return imgs
     
     def reconstruction_loss(self, imgs, pred, mask):
-        """
-        imgs: [N, channels, H, W]
-        pred: [N, channels, H, W]
-        mask: [N, L], 0 is keep, 1 is remove
+        """Computes reconstruction loss of the MAE
+        
+        Args:
+            imgs (torch.Tensor): [N, channels, H, W]
+            pred (torch.Tensor): [N, L, p*p*channels]
+            mask (torch.Tensor): [N, L], 0 is keep, 1 is remove
+        Returns:
+            loss (torch.Tensor): [1]
         """
         target = self.patchify(imgs)
-        pred = self.patchify(pred)
         if self.norm_pix_loss:
             mean = target.mean(dim=-1, keepdim=True)
             var = target.var(dim=-1, keepdim=True)
@@ -125,49 +141,76 @@ class MaeGan(nn.Module):
             return (loss * mask).sum() / mask.sum()
         return loss.mean()
     
-    def discriminator_loss(self, pred, mask, truth):
-        """Computes LSGAN discriminator loss
-        pred: [N, L, 2]
-        mask: [N, L], 0 is keep, 1 is remove
-        truth: [N, L], 0 is real, 1 is fake
-        """
-        # [N, L], mean loss per patch: 
-        loss = (pred - truth) ** 2
-        loss = loss.mean(dim=-1)
-        return (loss * mask).sum() / mask.sum()
-    
-    def adversarial_loss(self, discriminator_pred, mask):
-        """Computes LSGAN adversarial loss
-        discriminator_pred: [N, L, 2]
-        mask: [N, L], 0 is keep, 1 is remove
-        """
-        # [N, L], mean loss per patch: 
-        loss = discriminator_pred[:, :, 0] ** 2
-        loss = loss.mean(dim=-1)
-        return (loss * mask).sum() / mask.sum()
-    
-    def real_loss(self, latent):
-        """Computes LSGAN real loss
-        latent: [N, L, E]
-        """
-        real_pred = self.discriminator(latent)
-        return self.discriminator_loss(
-            real_pred, torch.ones_like(real_pred)
-        )
+    def real_discriminator_loss(self, pred):
+        """Computes LSGAN discriminator loss for real images.
         
-    def fake_loss(self, pred):
+        Args:
+            pred (torch.Tensor): [N, L]
+        Returns:
+            loss (torch.Tensor): [1]
         """
-        pred: [N, L, p*p*channels]
+        return (pred**2).mean()
+    
+    def fake_discriminator_loss(self, pred, mask):
+        """Computes LSGAN discriminator loss for fake images.
+        
+        Args:
+            pred (torch.Tensor): [N, L]
+            mask (torch.Tensor): [N, L], 0 is keep, 1 is remove
+        Returns:
+            loss (torch.Tensor): [1]
         """
-        latent, mask, ids_restore = self.encoder(
+        loss = pred**2
+        return loss[mask == 1].mean()
+    
+    def adversarial_loss(self, discriminator_pred):
+        """Computes LSGAN adversarial loss
+        
+        Fake images should not contain unmasked patches.
+        
+        Args:
+            discriminator_pred (torch.Tensor): [N, L]
+            mask (torch.Tensor): [N, L], 0 is keep, 1 is remove
+        Returns:
+            loss (torch.Tensor): [1]
+        """
+        # [N, L], mean loss per patch: 
+        loss = (discriminator_pred - 1) ** 2
+        return loss.mean()
+    
+    def real_loss(self, x):
+        """Computes LSGAN real loss
+        
+        Args:
+            x (torch.Tensor): [N, channels, H, W]
+        Returns:
+            loss (torch.Tensor): [1]
+        """
+        latent, mask, ids_restore = self.encoder(x, mask_ratio=0)
+        
+        real_pred = self.discriminator(latent, ids_restore)
+        return self.real_discriminator_loss(real_pred)
+
+    def fake_loss(self, pred, mask):
+        """Computes LSGAN fake loss
+        
+        Args:
+            pred (torch.Tensor): [N, L, p*p*channels]
+        Returns:
+            discriminator_loss (torch.Tensor): [1]
+        """
+        latent, _, ids_restore = self.encoder(
             self.unpatchify(pred.detach()), mask_ratio=0
         )
-        fake_pred = self.discriminator(latent)
         
-        discriminator_loss = self.discriminator_loss(
-            fake_pred, torch.zeros_like(fake_pred)
+        fake_pred = self.discriminator(latent, ids_restore)
+        
+        discriminator_loss = self.fake_discriminator_loss(
+            fake_pred, mask
         )
-        adversarial_loss = self.adversarial_loss(fake_pred, mask)
+        
+        adversarial_loss = self.adversarial_loss(fake_pred)
+        
         return discriminator_loss, adversarial_loss
     
     def forward_masked_modeling(self, x, input_type):
@@ -175,19 +218,21 @@ class MaeGan(nn.Module):
         latent, mask, ids_restore = self.encoder(x, self.mask_ratio)
         pred = self.decoders[input_type](latent, ids_restore)
         
-        generator_loss = self.reconstruction_loss(x, pred, mask)
-        
+        reconstruction_loss = self.reconstruction_loss(x, pred, mask)
+
         # gan step
         # real
-        real_discriminator_loss = self.real_loss(latent)
+        real_discriminator_loss = self.real_loss(x)
+
         # fake
-        fake_discriminator_loss, adversarial_loss = self.fake_loss(pred)
+        fake_discriminator_loss, adversarial_loss = self.fake_loss(pred, mask)
         
-        loss = generator_loss + self.discriminator_loss_weight * (
-            real_discriminator_loss + fake_discriminator_loss
-        )
-        
-        return MaeGanOutputs(loss, pred, mask)
+        loss = reconstruction_loss + adversarial_loss + \
+            self.discriminator_loss_weight * (
+                real_discriminator_loss + fake_discriminator_loss
+            )
+
+        return MaeGanOutputs(loss, pred, mask, reconstruction_loss)
     
     def forward_translation(self, x, input_type):
         latent, mask, ids_restore = self.encoder(x, 0)

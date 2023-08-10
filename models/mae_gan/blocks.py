@@ -7,10 +7,16 @@ from models.utils.pos_embed import get_2d_sincos_pos_embed
 from models.utils.vit_blocks import _init_weights
 
 def random_masking(x, mask_ratio):
-    """
-    Perform per-sample random masking by per-sample shuffling.
+    """Perform per-sample random masking by per-sample shuffling.
+    
     Per-sample shuffling is done by argsort random noise.
-    x: [N, L, D], sequence
+    
+    Args:
+        x (torch.tensor): [N, L, D] sequence
+        mask_ratio (float): ratio of masking
+    Returns:
+        x_masked (torch.tensor): [N, L*(1-mask_ratio), D] masked sequence.
+            0 is keep, 1 is remove
     """
     N, L, D = x.shape  # batch, length, dim
     len_keep = int(L * (1 - mask_ratio))
@@ -76,10 +82,17 @@ class EncoderViT(nn.Module):
         # initialize nn.Linear and nn.LayerNorm
         self.apply(_init_weights)
 
-    def forward(self, x, mask_ratio = 0):
+    def forward(self, x, mask_ratio: float = 0.):
+        """
+        Args:
+            x (torch.tensor): [N, C, H, W] image
+            mask_ratio (float): ratio of masking
+        Returns:
+            x (torch.tensor): [N, L, D] sequence
+        """
         # embed patches
         x = self.patch_embed(x)
-
+        
         # add pos embed w/o cls token
         x = x + self.pos_embed[:, 1:, :]
 
@@ -97,6 +110,7 @@ class EncoderViT(nn.Module):
         x = self.norm(x)
 
         return x, mask, ids_restore
+
 
 class DecoderViT(nn.Module):
     def __init__(
@@ -131,7 +145,7 @@ class DecoderViT(nn.Module):
         self.decoder_norm = norm_layer(decoder_embed_dim)
         
          # decoder to patch
-        
+
         self.decoder_pred = nn.Linear(decoder_embed_dim, patch_size**2 * in_chans, bias=True)
 
         self.initialize_weights()
@@ -149,6 +163,13 @@ class DecoderViT(nn.Module):
         self.apply(_init_weights)
 
     def forward(self, x, ids_restore):
+        """
+        Args:
+            x (torch.tensor): [N, L, D] sequence
+            ids_restore (torch.tensor): [N, L] ids to restore the original order
+        Returns:
+            x (torch.tensor): [N, L, D] sequence
+        """
         # embed tokens
         x = self.decoder_embed(x)
 
@@ -177,23 +198,32 @@ class DecoderViT(nn.Module):
 class DiscriminatorViT(nn.Module):
     def __init__(
         self,
+        img_size=512,
+        patch_size=16,
+        in_chans=1,
         encoder_embed_dim=1024,
-        encoder_num_heads=16,
+        discriminator_embed_dim=512,
+        discriminator_num_heads=16,
         discriminator_depth=4,
         mlp_ratio=4.0,
         norm_layer=nn.LayerNorm
     ):
         super().__init__()
         
-        self.blocks = nn.ModuleList([
-            Block(encoder_embed_dim, encoder_num_heads, mlp_ratio, qkv_bias=True, norm_layer=norm_layer)
-            for i in range(discriminator_depth)])
-        self.norm = norm_layer(encoder_embed_dim)
+        self.backbone = DecoderViT(
+            img_size=img_size,
+            patch_size=patch_size,
+            in_chans=in_chans,
+            encoder_embed_dim=encoder_embed_dim,
+            decoder_embed_dim=discriminator_embed_dim,
+            decoder_depth=discriminator_depth,
+            decoder_num_heads=discriminator_num_heads,
+            mlp_ratio=mlp_ratio,
+            norm_layer=norm_layer
+        )
         
-        self.discriminator_pred = nn.Linear(
-            encoder_embed_dim,
-            2,
-            bias=True
+        self.backbone.decoder_pred = nn.Linear(
+            discriminator_embed_dim, 1, bias=True
         )
         
         self.initialize_weights()
@@ -202,8 +232,6 @@ class DiscriminatorViT(nn.Module):
         # initialize nn.Linear and nn.LayerNorm
         self.apply(_init_weights)
         
-    def forward(self, x):
-        for blk in self.blocks:
-            x = blk(x)
-        x = self.norm(x)
-        return self.discriminator_pred(x)
+    def forward(self, x, ids_restore):
+        return self.backbone(x, ids_restore)
+        
