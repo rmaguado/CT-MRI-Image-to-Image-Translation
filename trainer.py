@@ -312,19 +312,23 @@ class Trainer:
 
             self.batch_counter += 1
 
-    def train(self, train_dataloader, eval_dataloader):
+    def train(self, train_dataloader, eval_dataloader=None):
         for epoch_number in range(1, self.train_epochs+1):
             logging.info(
                 "%s Starting epoch %s", self.get_timestamp(), epoch_number
             )
             self.train_loop(train_dataloader, epoch_number)
             logging.info("%s Finished training.", self.get_timestamp())
-            eval_loss = self.eval_loop(eval_dataloader, epoch_number)
-            loss_str = f"{eval_loss:.6f}"
-            logging.info(
-                "%s Finished evaluation. Average loss: %s",
-                self.get_timestamp(), loss_str
-            )
-            if not self.enable_batch_checkpointing:
-                self.create_checkpoint(epoch_number, eval_loss)
+            if eval_dataloader is not None:
+                logging.info(
+                    "%s Starting evaluation.", self.get_timestamp()
+                )
+                eval_loss = self.eval_loop(eval_dataloader, epoch_number)
+                loss_str = f"{eval_loss:.6f}"
+                logging.info(
+                    "%s Finished evaluation. Average loss: %s",
+                    self.get_timestamp(), loss_str
+                )
+                if not self.enable_batch_checkpointing:
+                    self.create_checkpoint(epoch_number, eval_loss)
         logging.info("%s Finished training. Exiting.", self.get_timestamp())
