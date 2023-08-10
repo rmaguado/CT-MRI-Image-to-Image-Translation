@@ -51,6 +51,8 @@ class Dataset:
         )
         self.counter = 0
         self.total_batches = data_shape[0]
+        self.index_list = np.arange(self.total_batches)
+        np.random.shuffle(self.index_list)
 
     def data_augmentation(self, batch_data):
         """Reflects and rotates the image at random.
@@ -80,7 +82,7 @@ class Dataset:
     def __next__(self):
         if self.counter == self.total_batches:
             self.counter = 0
-        batch = self.batches[self.counter]
+        batch = self.batches[self.index_list[self.counter]]
         self.counter += 1
         if self.enable_data_augmentation:
             return self.data_augmentation(batch)
