@@ -20,12 +20,6 @@ train_loader = CycleGANDataloader(
     'train',
     mini_batch_sample_size=2
 )
-test_loader = CycleGANDataloader(
-    DATA_ROOT_PATH,
-    'test',
-    size_limit=500,
-    mini_batch_sample_size=2
-)
 
 model = CycleGANModel(**config["model"])
 optim = BlankOptim()
@@ -37,4 +31,4 @@ trainer = CycleGANTrainer(
     **config["trainer"]
 )
 
-trainer.train(train_loader, test_loader)
+trainer.train(train_loader)

@@ -48,7 +48,7 @@ class CycleGANTrainer(Trainer):
             self.model.optimize_parameters()
             losses = self.model.get_current_losses()
             
-            summary_loss = losses["G_A"] + losses["G_B"]
+            summary_loss = losses["cycle_A"] + losses["cycle_A"]
 
             if self.enable_batch_checkpointing and \
                     self.batch_counter % self.save_frequency == 0 and \
@@ -62,24 +62,17 @@ class CycleGANTrainer(Trainer):
                     self.batch_counter % self.tensorboard_log_frequency == 0:
                 for key, loss in losses.items():
                     self.writer.add_scalar(
-                        f"Loss/{key}",
+                        f"CycleGAN/{key}",
                         loss,
                         self.batch_counter
                     )
+                self.writer.add_scalar(
+                    "Loss/train",
+                    summary_loss,
+                    self.batch_counter
+                )
 
             self.batch_counter += 1
-
-    def train_tensorboard(self, outputs):
-        self.writer.add_scalar(
-            "Loss/train",
-            outputs.item(),
-            self.batch_counter
-        )
-        self.writer.add_scalar(
-            "Learning Rate",
-            self.optim.param_groups[0]['lr'],
-            self.batch_counter
-        )
 
     def eval_loop(self, *args, **kwargs):
         return 0.

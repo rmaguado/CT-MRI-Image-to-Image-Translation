@@ -19,7 +19,7 @@
         "init_type": "normal",
         "init_gain": 0.02,
         "pool_size": 50,
-        "gpu_ids": [0],
+        "gpu_ids": [1],
         "device": "cuda:1",
         "isTrain": true
     },
@@ -32,17 +32,17 @@
         "load_model_dir" : "",
         "enable_tensorboard" : true,
         "tensorboard_logdir" : "/nfs/home/clruben/workspace/nst/runs",
-        "tensorboard_log_frequency" : 75,
+        "tensorboard_log_frequency" : 575,
         "enable_tqdm" : false,
         "enable_warmup" : true,
         "warmup_steps" : 5000,
         "warmup_factor" : 10.0,
-        "learning_rate" : 5e-8,
+        "learning_rate" : 1e-4,
         "save_dir" : "/nfs/home/clruben/workspace/nst/models/cyclegan/checkpoints",
         "enable_batch_checkpointing" : true,
-        "save_frequency" : 15000,
+        "save_frequency" : 7500,
         "enable_delete_worse_models" : true,
-        "max_models_saved" : 3,
+        "max_models_saved" : 2,
         "model_kwargs" : []
     }
 }
