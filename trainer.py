@@ -95,14 +95,15 @@ class Trainer:
         for param_group in self.optim.param_groups:
             param_group['lr'] = self.learning_rate
 
-        if self.enable_delete_worse_models:
-            self.best_model_logs: list = []
-            
+        self.saved_model_logs: list = []
+        
     def reset_warmup(self):
         self.warmup_batch_counter: int = 0
+        for param_group in self.optim.param_groups:
+            param_group['lr'] = self.learning_rate
         
-    def clear_best_models(self):
-        self.best_model_logs: list = []
+    def clear_save_models(self):
+        self.save_model_logs: list = []
 
     def to_device(self, data):
         if torch.is_tensor(data):
@@ -206,28 +207,54 @@ class Trainer:
         if outputs is not None:
             loss = outputs.loss.item()
         if self.enable_delete_worse_models:
-            if len(self.best_model_logs) < self.max_models_saved or \
-                    loss < max(save["loss"] for save in self.best_model_logs):
+            if len(self.saved_model_logs) < self.max_models_saved or \
+                    loss < max(save["loss"] for save in self.saved_model_logs):
 
                 save_dir: str = self.save_model(epoch_number, loss)
 
-                self.best_model_logs.append({
+                self.saved_model_logs.append({
                     "loss": loss,
-                    "save_dir": save_dir
+                    "save_dir": save_dir,
+                    "batch_counter": self.batch_counter
                 })
-            if len(self.best_model_logs) > self.max_models_saved:
+            if len(self.saved_model_logs) > self.max_models_saved:
                 self.delete_worse_models()
             return
-        self.save_model(epoch_number, loss)
+        save_dir: str = self.save_model(epoch_number, loss)
+        self.saved_model_logs.append({
+            "loss": loss,
+            "save_dir": save_dir,
+            "batch_counter": self.batch_counter
+        })
+        if len(self.saved_model_logs) > self.max_models_saved:
+            self.delete_oldest_model()
+        
+    def delete_oldest_model(self):
+        oldest_model_idx: int = self.saved_model_logs.index(
+            min(self.saved_model_logs, key=lambda x: x["batch_counter"])
+        )
+        oldest_save_dir: str = self.saved_model_logs[oldest_model_idx]["save_dir"]
+        shutil.rmtree(oldest_save_dir)
+        logging.info(
+            "%s Deleted model %s.",
+            self.get_timestamp(),
+            oldest_save_dir
+        )
+        del self.saved_model_logs[oldest_model_idx]
 
     def delete_worse_models(self):
-        saved_model_losses = [x["loss"] for x in self.best_model_logs]
+        saved_model_losses = [x["loss"] for x in self.saved_model_logs]
         worst_model_idx: int = saved_model_losses.index(
             max(saved_model_losses)
         )
-        worst_save_dir: str = self.best_model_logs[worst_model_idx]["save_dir"]
+        worst_save_dir: str = self.saved_model_logs[worst_model_idx]["save_dir"]
         shutil.rmtree(worst_save_dir)
-        del self.best_model_logs[worst_model_idx]
+        logging.info(
+            "%s Deleted model %s.",
+            self.get_timestamp(),
+            worst_save_dir
+        )
+        del self.saved_model_logs[worst_model_idx]
 
     def step_lr_warmup(self):
         lr_factor: float = self.learning_rate / self.warmup_factor
@@ -313,7 +340,7 @@ class Trainer:
                 self.create_checkpoint(epoch_number, outputs=outputs)
 
             if self.enable_warmup and \
-                    self.warmup_batch_counter < self.warmup_steps:
+                    self.warmup_batch_counter <= self.warmup_steps:
                 self.step_lr_warmup()
                 self.warmup_batch_counter += 1
             elif self.scheduler is not None:
