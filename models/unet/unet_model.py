@@ -21,13 +21,13 @@ class UNet(nn.Module):
         self,
         in_channels: int = 1,
         base_dim: int = 32,
-        mask_value: int = 1024/(3071+1024),
+        mask_values: list[float] = [1024/(3071+1024), 0.],
         bilinear=False
     ):
         super(UNet, self).__init__()
         self.in_channels = in_channels
         self.base_dim = base_dim
-        self.mask_value = mask_value
+        self.mask_values = mask_values
         self.bilinear = bilinear
         self.critereon = nn.MSELoss()
 
@@ -61,7 +61,8 @@ class UNet(nn.Module):
         """
         MSE loss for target pixels within mask.
         """
-        mask = target != self.mask_value
+        mask = (target != self.mask_values[0]) *\
+            (target != self.mask_values[1])
         pred = pred[mask]
         target = target[mask]
         return self.critereon(pred, target)
