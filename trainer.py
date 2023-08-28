@@ -103,7 +103,7 @@ class Trainer:
             param_group['lr'] = self.learning_rate
         
     def clear_save_models(self):
-        self.save_model_logs: list = []
+        self.saved_model_logs: list = []
 
     def to_device(self, data):
         if torch.is_tensor(data):
@@ -260,7 +260,7 @@ class Trainer:
         lr_factor: float = self.learning_rate / self.warmup_factor
         new_lr: float = lr_factor + (
             self.learning_rate - lr_factor
-        ) * self.batch_counter / self.warmup_steps
+        ) * self.warmup_batch_counter / self.warmup_steps
 
         for param_group in self.optim.param_groups:
             param_group['lr'] = new_lr

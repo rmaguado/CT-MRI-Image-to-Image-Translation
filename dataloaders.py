@@ -1,11 +1,11 @@
 """Dataloaders for the NST project.
 """
 
-from typing import Optional
 from glob import glob
 import os
 
 import numpy as np
+import torch
 
 
 class Dataset:
@@ -22,6 +22,7 @@ class Dataset:
             data_root_path: str,
             dataset: str = "train",
             mode: str = "CT",
+            batch_size: int = 4,
             enable_data_augmentation: bool = False
     ):
         dataset_path = os.path.join(data_root_path, dataset)
@@ -43,15 +44,16 @@ class Dataset:
                 ).replace(".npy", "").split("_")
             ]
         )
-        self.batches = np.memmap(
+        self.data = np.memmap(
             data_dir,
             dtype=np.float32,
             mode='r',
             shape=data_shape
         )
+        self.batch_size = batch_size
         self.counter = 0
-        self.total_batches = data_shape[0]
-        self.index_list = np.arange(self.total_batches)
+        self.total_images = data_shape[0]
+        self.index_list = np.arange(self.total_images)
         np.random.shuffle(self.index_list)
 
     def data_augmentation(self, batch_data):
@@ -71,19 +73,24 @@ class Dataset:
         return batch_data
 
     def __getitem__(self, idx):
-        return self.batches[idx]
+        return self.data[idx]
 
     def __len__(self):
-        return self.total_batches
+        return self.total_images // self.batch_size
 
     def __iter__(self):
         return self
 
     def __next__(self):
-        if self.counter == self.total_batches:
+        if self.counter == self.total_images:
             self.counter = 0
-        batch = self.batches[self.index_list[self.counter]]
-        self.counter += 1
+        batch = np.squeeze(
+            self.data[
+                self.index_list[self.counter:self.counter+self.batch_size]
+            ],
+            axis=1
+        )
+        self.counter += self.batch_size
         if self.enable_data_augmentation:
             return self.data_augmentation(batch)
         return batch
@@ -106,18 +113,15 @@ class Dataloader:
             self,
             data_root_path: str,
             dataset_name: str = "train",
-            size_limit: Optional[int] = None
+            batch_size: int = 4
     ):
         self.loaders = [
-            Dataset(data_root_path, dataset_name, "CT"),
-            Dataset(data_root_path, dataset_name, "MR")
+            Dataset(data_root_path, dataset_name, "CT", batch_size=batch_size),
+            Dataset(data_root_path, dataset_name, "MR", batch_size=batch_size)
         ]
-        if size_limit is None:
-            self.loop_length = min(
-                [len(x) for x in self.loaders]
-            ) * 2
-        else:
-            self.loop_length = size_limit
+        self.loop_length = min(
+            [len(x) for x in self.loaders]
+        ) * 2
         self.mode = True
         self.counter = 0
 
@@ -131,21 +135,8 @@ class Dataloader:
         self.mode = not self.mode
         if self.counter == self.loop_length:
             self.counter = 0
-        next_item = next(self.loaders[self.mode])
+        next_item = torch.from_numpy(
+            next(self.loaders[self.mode])
+        )
         mode = ["CT", "MR"][self.mode]
         return next_item, mode
-
-
-if __name__ == "__main__":
-    from tqdm import tqdm
-    import time
-
-    t0 = time.time()
-    SOURCE = "/nfs/home/clruben/workspace/nst/data/preprocessed/"
-    testloader = Dataset(SOURCE, "train", "CT")
-    print(time.time()-t0)
-    t0 = time.time()
-    loop = tqdm(range(len(testloader)))
-    for batch_data in loop:
-        x = next(testloader)
-    print(time.time()-t0)

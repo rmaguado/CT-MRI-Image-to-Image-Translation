@@ -1,42 +1,42 @@
 import json
-from torch.optim import AdamW
+
+import torch
+import lightning.pytorch as pl
 
 from dataloaders import Dataloader
-from models.mae_gan.mae_gan import MaeGan
-from models.mae_gan.mae_gan_trainer import MaeGanTrainer
+from models.mae_gan.mae_gan import MaeGanLM
 
-from torch.optim.lr_scheduler import CosineAnnealingLR
+DATA_PATH = "/nfs/home/clruben/workspace/nst/data/batch1"
+CONFIG_PATH = "/nfs/home/clruben/workspace/nst/models/mae_gan/config.json"
 
-data_root_path = "/nfs/home/clruben/workspace/nst/data/"
-config_path = "/nfs/home/clruben/workspace/nst/models/mae_gan/config.json"
+torch.set_float32_matmul_precision('medium')
 
-with open(config_path) as file:
+with open(CONFIG_PATH, encoding="utf-8") as file:
     config = json.load(file)
-lr = config["trainer"]["learning_rate"]
 
 train_loader = Dataloader(
-    data_root_path,
+    DATA_PATH,
     'train',
-    size_limit=50
+    batch_size=config["batch_size"]
 )
 
-model = MaeGan(**config["model"])
-optim = AdamW(model.parameters(), lr=lr)
-scheduler = CosineAnnealingLR(optim, **config["scheduler"])
+model = MaeGanLM(config)
 
-trainer = MaeGanTrainer(
-    model, 
-    optim, 
-    config,
-    scheduler=scheduler,
+logger = pl.loggers.TensorBoardLogger(
+    **config["logger"]
+)
+
+checkpoint_callback = pl.callbacks.ModelCheckpoint(
+    **config["checkpoint"]
+)
+
+trainer = pl.Trainer(
+    logger=logger,
+    callbacks=[checkpoint_callback],
     **config["trainer"]
 )
-
-trainer.train(train_loader)
-trainer.model.set_mode("translation")
-trainer.reset_warmup()
-trainer.clear_save_models()
-
-trainer.scheduler = CosineAnnealingLR(optim, **config["scheduler"])
-
-trainer.train(train_loader)
+trainer.fit(
+    model=model,
+    train_dataloaders=train_loader,
+    #ckpt_path="/nfs/home/clruben/workspace/nst/models/mae_gan/checkpoints/last-v3.ckpt"
+)

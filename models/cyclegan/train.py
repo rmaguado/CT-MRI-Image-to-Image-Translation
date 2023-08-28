@@ -3,6 +3,7 @@ Train a CycleGAN model.
 """
 
 import json
+import os
 
 from models.cyclegan.cyclegan_model import CycleGANModel
 from models.cyclegan.cyclegan_trainer import CycleGANTrainer, BlankOptim

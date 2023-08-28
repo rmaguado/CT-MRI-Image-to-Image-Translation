@@ -1,45 +1,54 @@
 {
+    "batch_size": 4,
+    "logger": {
+        "save_dir": "/nfs/home/clruben/workspace/nst/models/mae_gan/runs"
+    },
+    "trainer": {
+        "accelerator": "gpu",
+        "default_root_dir": "/nfs/home/clruben/workspace/nst/models/mae_gan/",
+        "devices": [0],
+        "precision": "bf16",
+        "log_every_n_steps": 1,
+        "enable_checkpointing": true,
+        "accumulate_grad_batches": 4,
+        "max_epochs": 2
+    },
+    "checkpoint": {
+        "monitor":"reconstruction_loss",
+        "save_last": true,
+        "dirpath": "/nfs/home/clruben/workspace/nst/models/mae_gan/checkpoints",
+        "filename": "model_checkpoint",
+        "save_top_k": 3,
+        "every_n_train_steps": 2500
+    },
+    "scheduler" : {
+        "first_cycle_steps" : 5000,
+        "cycle_mult" :  1.0,
+        "max_lr" : 0.05,
+        "min_lr" : 1e-4,
+        "warmup_steps" : 150,
+        "gamma" : 0.75,
+        "last_epoch" : -1
+    },
+    "log_loss_every_n_steps": 1,
+    "log_image_every_n_steps": 101,
+    "mode_repetitions": 2,
     "model": {
         "img_size": 512,
         "patch_size": 16,
         "in_chans": 1,
-        "encoder_embed_dim": 768,
-        "encoder_depth": 8,
-        "encoder_num_heads": 24,
+        "encoder_embed_dim": 1024,
+        "encoder_depth": 12,
+        "encoder_num_heads": 16,
         "decoder_embed_dim": 512,
-        "decoder_depth": 6,
+        "decoder_depth": 8,
         "decoder_num_heads": 16,
         "discriminator_depth": 4,
-        "discriminator_embed_dim": 256,
+        "discriminator_embed_dim": 512,
         "discriminator_num_heads": 16,
         "mlp_ratio": 4.0,
         "mask_ratio": 0.75,
         "exclude_mask_loss": false,
         "discriminator_loss_weight": 2.0
-    },
-    "trainer": {
-        "model_name": "mae_gan",
-        "model_kwargs": [
-            "x",
-            "input_type"
-        ],
-        "train_epochs": 10,
-        "device": "cuda:0",
-        "log_dir": "/nfs/home/clruben/workspace/nst/models/mae_gan/logs",
-        "loading_model": false,
-        "load_model_dir": "",
-        "enable_tensorboard": true,
-        "tensorboard_logdir": "/nfs/home/clruben/workspace/nst/runs",
-        "tensorboard_log_frequency": 725,
-        "enable_tqdm": false,
-        "enable_warmup": true,
-        "warmup_steps": 7500,
-        "warmup_factor": 100.0,
-        "learning_rate": 1e-4,
-        "save_dir": "/nfs/home/clruben/workspace/nst/models/mae_gan/checkpoints",
-        "enable_batch_checkpointing": true,
-        "save_frequency": 7500,
-        "enable_delete_worse_models": true,
-        "max_models_saved": 3
     }
 }

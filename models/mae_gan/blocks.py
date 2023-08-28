@@ -1,5 +1,5 @@
 import torch
-import torch.nn as nn
+from torch import nn
 
 from timm.models.vision_transformer import PatchEmbed, Block
 
@@ -105,6 +105,15 @@ class EncoderViT(nn.Module):
 
         # initialize nn.Linear and nn.LayerNorm
         self.apply(_init_weights)
+        
+    def disable_grad(self):
+        for parameter in self.parameters():
+            parameter.requires_grad = False
+            
+    def enable_grad(self):
+        for name, parameter in self.named_parameters():
+            if 'pos_embed' not in name:
+                parameter.requires_grad = True
 
     def forward(self, x, mask_ratio: float = 0.):
         """
@@ -208,6 +217,15 @@ class DecoderViT(nn.Module):
 
         # initialize nn.Linear and nn.LayerNorm
         self.apply(_init_weights)
+        
+    def disable_grad(self):
+        for parameter in self.parameters():
+            parameter.requires_grad = False
+            
+    def enable_grad(self):
+        for name, parameter in self.named_parameters():
+            if 'decoder_pos_embed' not in name:
+                parameter.requires_grad = True
 
     def forward(self, x, ids_restore):
         """
@@ -264,7 +282,7 @@ class DiscriminatorViT(nn.Module):
         norm_layer=nn.LayerNorm
     ):
         super().__init__()
-        
+
         self.patch_size = patch_size
         self.in_chans = in_chans
 
@@ -322,6 +340,15 @@ class DiscriminatorViT(nn.Module):
 
         # initialize nn.Linear and nn.LayerNorm
         self.apply(_init_weights)
+
+    def disable_grad(self):
+        for parameter in self.parameters():
+            parameter.requires_grad = False
+
+    def enable_grad(self):
+        for name, parameter in self.named_parameters():
+            if 'discriminator_pos_embed' not in name:
+                parameter.requires_grad = True
 
     def forward(self, x, ids_restore):
         """

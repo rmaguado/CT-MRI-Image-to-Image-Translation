@@ -11,13 +11,12 @@ import pandas as pd
 from tqdm import tqdm
 import cv2
 
-SAVE_ROOT = "/nfs/home/clruben/workspace/nst/data/MR_fix"
-BATCH_SIZE = 16
+SAVE_ROOT = "/nfs/home/clruben/workspace/nst/data/"
+BATCH_SIZE = 1
 IMG_SIZE = 512
 DATASET_RATIOS = {
-    "train" : 0.90,
-    "test" : 0.05,
-    "val" : 0.05
+    "train" : 0.95,
+    "test" : 0.05
 }
 
 def count_total_slices(sources, mode):
@@ -98,7 +97,6 @@ def main(dataset_root, mode="CT"):
 
     train_batches = int(total_batches*DATASET_RATIOS["train"])
     test_batches = int(total_batches*DATASET_RATIOS["test"])
-    val_batches = int(total_batches*DATASET_RATIOS["val"])
 
     if mode == "CT":
         LIMITS = (-1024, 3071)
@@ -115,11 +113,6 @@ def main(dataset_root, mode="CT"):
         mode,
         (test_batches, BATCH_SIZE, 1, IMG_SIZE, IMG_SIZE)
     )
-    val_mmap = create_mmap(
-        "val",
-        mode,
-        (val_batches, BATCH_SIZE, 1, IMG_SIZE, IMG_SIZE)
-    )
 
     dataset_indexes = list(range(len(sources)))
     #random.shuffle(dataset_indexes)
@@ -128,7 +121,6 @@ def main(dataset_root, mode="CT"):
     batch_counter = 0
     train_counter = 0
     test_counter = 0
-    val_counter = 0
 
     for i in loop:
         filename = sources.iloc[i]["FinalPath"]
@@ -152,13 +144,8 @@ def main(dataset_root, mode="CT"):
                 test_mmap[test_counter][batch_counter] = slice_
                 test_counter += 1
                 continue
-            if val_counter < val_batches:
-                val_mmap[val_counter][batch_counter] = slice_
-                val_counter += 1
-                continue
             train_counter = 0
             test_counter = 0
-            val_counter = 0
             batch_counter += 1
             if batch_counter == BATCH_SIZE:
                 break

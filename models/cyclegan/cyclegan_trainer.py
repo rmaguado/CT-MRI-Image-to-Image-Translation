@@ -47,13 +47,13 @@ class CycleGANTrainer(Trainer):
             self.model.set_input(batch_data)
             self.model.optimize_parameters()
             losses = self.model.get_current_losses()
-            
+
             summary_loss = losses["cycle_A"] + losses["cycle_A"]
 
             if self.enable_batch_checkpointing and \
                     self.batch_counter % self.save_frequency == 0 and \
                     self.batch_counter != 0:
-                self.create_checkpoint(epoch_number, summary_loss)
+                self.create_checkpoint(epoch_number, loss=summary_loss)
 
             if self.enable_warmup and self.batch_counter < self.warmup_steps:
                 self.step_lr_warmup()
