@@ -31,12 +31,13 @@ checkpoint_callback = pl.callbacks.ModelCheckpoint(
 )
 
 trainer = pl.Trainer(
+    enable_progress_bar=False,
     logger=logger,
     callbacks=[checkpoint_callback],
     **config["trainer"]
 )
 trainer.fit(
     model=model,
-    train_dataloaders=train_loader,
-    #ckpt_path="/nfs/home/clruben/workspace/nst/models/mae_gan/checkpoints/last-v3.ckpt"
+    train_dataloaders=train_loader
+    #ckpt_path="/nfs/home/clruben/workspace/nst/models/mae_gan/checkpoints/model_checkpoint.ckpt"
 )
