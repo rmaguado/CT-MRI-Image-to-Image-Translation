@@ -2,14 +2,13 @@
 Contains a dataloader for the cyclegan model.
 """
 
-from typing import Optional
-import numpy as np
+import torch
 
 from dataloaders import Dataset
 
 
-class CycleGANDataloader:
-    """Pools together MRI and CT scans for a cyclegan.
+class CycleganDataloader:
+    """Pools together MRI and CT scans for masked modeling.
 
     Assumes that data_root_path contains a directory called dataset, which
     contains two subdirectories, CT and MR, which contain .npy files. The names
@@ -25,22 +24,16 @@ class CycleGANDataloader:
             self,
             data_root_path: str,
             dataset_name: str = "train",
-            mini_batch_sample_size: Optional[int] = 1,
-            size_limit: Optional[int] = None
+            batch_size: int = 4
     ):
         self.loaders = [
-            Dataset(data_root_path, dataset_name, "CT"),
-            Dataset(data_root_path, dataset_name, "MR")
+            Dataset(data_root_path, dataset_name, "CT", batch_size=batch_size),
+            Dataset(data_root_path, dataset_name, "MR", batch_size=batch_size)
         ]
-        if size_limit is None:
-            self.loop_length = min(
-                [len(x) for x in self.loaders]
-            )
-        else:
-            self.loop_length = size_limit
+        self.loop_length = min(
+            [len(x) for x in self.loaders]
+        ) * 2
         self.counter = 0
-        self.batch_size = len(self.loaders[0][0])
-        self.mini_batch_sample_size = mini_batch_sample_size
 
     def __len__(self):
         return self.loop_length
@@ -51,18 +44,8 @@ class CycleGANDataloader:
     def __next__(self):
         if self.counter == self.loop_length:
             self.counter = 0
-        ct_batch = next(self.loaders[0])
-        mr_batch = next(self.loaders[1])
-        if self.mini_batch_sample_size is not None:
-            minibatch_indexes = np.random.choice(
-                range(self.batch_size),
-                self.mini_batch_sample_size
-            )
-            return {
-                "A": ct_batch[minibatch_indexes],
-                "B": mr_batch[minibatch_indexes]
-            }
-        return {
-            "A": ct_batch,
-            "B": mr_batch
+        next_item = {
+            "A": torch.from_numpy(next(self.loaders[0])),
+            "B": torch.from_numpy(next(self.loaders[1]))
         }
+        return next_item

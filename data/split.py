@@ -12,34 +12,41 @@ from tqdm import tqdm
 import cv2
 
 SAVE_ROOT = "/nfs/home/clruben/workspace/nst/data/"
-BATCH_SIZE = 1
 IMG_SIZE = 512
 DATASET_RATIOS = {
-    "train" : 0.95,
-    "test" : 0.05
+    "train" : 0.98,
+    "test" : 0.02
 }
 
 def count_total_slices(sources, mode):
     total_slices = 0
     fails = 0
-    fail_paths = []
+    fail_idx = []
     loop = tqdm(range(len(sources)))
     for i in loop:
         try:
             filepath = sources.iloc[i]["FinalPath"]
             nii_ = nib.load(filepath)
             image = nii_.get_fdata()
-        except Exception as e:
+            resized = resize(image)
+            if np.isnan(np.sum(resized)):
+                fails += 1
+                fail_idx.append(i)
+                continue
+        except Exception:
             fails += 1
-            fail_paths.append(sources.iloc[i]["FinalPath"])
+            fail_idx.append(i)
             continue
         if mode == "MR":
             if len(image.shape) > 3 or np.min(image) < 0:
+                fails += 1
+                fail_idx.append(i)
                 continue
         total_slices += min(image.shape)
     if fails > 0:
         print(f"Failed to load {fails} nifti files")
-        print("\n".join(fail_paths))
+    # remove fails from sources
+    sources = sources.drop(fail_idx)
     return total_slices
 
 def winsorize_and_rescale(image, limits):
@@ -73,14 +80,13 @@ def resize(x):
     return x
 
 def create_mmap(dataset, mode, shape):
-    global SAVE_ROOT
     filename = "_".join([str(x) for x in shape]) + ".npy"
     save_path = os.path.join(SAVE_ROOT, dataset, mode, filename)
-    
+
     memmap_array = np.memmap(
-        save_path, 
-        dtype=np.float32, 
-        mode='w+', 
+        save_path,
+        dtype=np.float32,
+        mode='w+',
         shape=shape
     )
     return memmap_array
@@ -92,63 +98,49 @@ def main(dataset_root, mode="CT"):
     total_slices = count_total_slices(sources, mode)
     print(f"Total slices: {total_slices}")
 
-
-    total_batches = total_slices//BATCH_SIZE
-
-    train_batches = int(total_batches*DATASET_RATIOS["train"])
-    test_batches = int(total_batches*DATASET_RATIOS["test"])
+    train_slices = int(total_slices*DATASET_RATIOS["train"])
+    test_slices = int(total_slices*DATASET_RATIOS["test"])
 
     if mode == "CT":
-        LIMITS = (-1024, 3071)
+        limits = (-1024, 3071)
     else:
-        LIMITS = (0, 2000)
+        limits = (0, 2000)
 
     train_mmap = create_mmap(
         "train",
         mode,
-        (train_batches, BATCH_SIZE, 1, IMG_SIZE, IMG_SIZE)
+        (train_slices, 1, IMG_SIZE, IMG_SIZE)
     )
     test_mmap = create_mmap(
         "test",
         mode,
-        (test_batches, BATCH_SIZE, 1, IMG_SIZE, IMG_SIZE)
+        (test_slices, 1, IMG_SIZE, IMG_SIZE)
     )
 
     dataset_indexes = list(range(len(sources)))
     #random.shuffle(dataset_indexes)
     loop = tqdm(dataset_indexes)
 
-    batch_counter = 0
     train_counter = 0
     test_counter = 0
 
     for i in loop:
         filename = sources.iloc[i]["FinalPath"]
         nii_ = nib.load(filename)
-        try:
-            nii_data = nii_.get_fdata().astype(np.float32)
-        except:continue
-        if mode == "MR" and np.min(nii_data) < 0:
-            continue
-        if len(nii_data.shape) > 3:
-            continue
+        nii_data = nii_.get_fdata().astype(np.float32)
         nii_data = resize(nii_data)
-        nii_data = winsorize_and_rescale(nii_data, LIMITS)
+        nii_data = winsorize_and_rescale(nii_data, limits)
 
         for slice_ in nii_data:
-            if train_counter < train_batches:
-                train_mmap[train_counter][batch_counter] = slice_
+            if train_counter < train_slices:
+                train_mmap[train_counter] = slice_
                 train_counter += 1
                 continue
-            if test_counter < test_batches:
-                test_mmap[test_counter][batch_counter] = slice_
+            if test_counter < test_slices:
+                test_mmap[test_counter] = slice_
                 test_counter += 1
                 continue
-            train_counter = 0
-            test_counter = 0
-            batch_counter += 1
-            if batch_counter == BATCH_SIZE:
-                break
+            break
 
 # python3 split.py /nfs/rwork/DATABASES_OPENSOURCE/TCIA_anon/MR_selection.csv MR
 if __name__ == "__main__":
