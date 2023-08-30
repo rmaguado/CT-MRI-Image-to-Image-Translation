@@ -3,35 +3,36 @@
     "logger": {
         "save_dir": "/nfs/home/clruben/workspace/nst/models/mae_gan/runs"
     },
+    "accumulate_grad_batches": 4,
+    "gradient_clip_val": 0.5,
     "trainer": {
         "accelerator": "gpu",
         "default_root_dir": "/nfs/home/clruben/workspace/nst/models/mae_gan/",
         "devices": [0],
         "precision": "bf16",
-        "log_every_n_steps": 1,
+        "log_every_n_steps": 4,
         "enable_checkpointing": true,
-        "accumulate_grad_batches": 4,
         "max_epochs": 2
     },
     "checkpoint": {
-        "monitor":"reconstruction_loss",
+        "monitor":"loss/reconstruction",
         "save_last": true,
         "dirpath": "/nfs/home/clruben/workspace/nst/models/mae_gan/checkpoints",
         "filename": "model_checkpoint",
-        "save_top_k": 3,
+        "save_top_k": 2,
         "every_n_train_steps": 2500
     },
     "scheduler" : {
         "first_cycle_steps" : 5000,
         "cycle_mult" :  1.0,
-        "max_lr" : 0.05,
+        "max_lr" : 0.01,
         "min_lr" : 1e-4,
         "warmup_steps" : 150,
         "gamma" : 0.75,
         "last_epoch" : -1
     },
     "log_loss_every_n_steps": 1,
-    "log_image_every_n_steps": 101,
+    "log_image_every_n_steps": 400,
     "mode_repetitions": 2,
     "model": {
         "img_size": 512,

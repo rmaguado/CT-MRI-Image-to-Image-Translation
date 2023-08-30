@@ -101,15 +101,23 @@ class MaeGanModel(nn.Module):
 
         self.norm_pix_loss = norm_pix_loss
 
+    def enable_decoder_grads(self):
+        for decoder in self.decoders.values():
+            decoder.enable_grad()
+
+    def disable_decoder_grads(self):
+        for decoder in self.decoders.values():
+            decoder.disable_grad()
+
+    def enable_discriminator_grads(self):
+        self.discriminator.enable_grad()
+
+    def disable_discriminator_grads(self):
+        self.discriminator.disable_grad()
+
     def set_mode(self, mode):
         self.mode = mode
-        if mode == "cycle":
-            for decoder in self.decoders.values():
-                decoder.disable_grad()
-        elif mode == "mae":
-            for decoder in self.decoders.values():
-                decoder.enable_grad()
-        else:
+        if mode not in ["cycle", "mae"]:
             raise ValueError("Unknown mode")
 
     def patchify(self, imgs):
@@ -200,16 +208,6 @@ class MaeGanModel(nn.Module):
             return (loss * mask).sum() / mask.sum()
         return loss.mean()
 
-    def real_discriminator_loss(self, pred):
-        """Computes LSGAN discriminator loss for real images.
-        
-        Args:
-            pred (torch.Tensor): [N, L]
-        Returns:
-            loss (torch.Tensor): [1]
-        """
-        return (pred**2).mean()
-
     def fake_discriminator_loss(self, pred):
         """Computes LSGAN discriminator loss for fake images.
         
@@ -219,37 +217,30 @@ class MaeGanModel(nn.Module):
             loss (torch.Tensor): [1]
         """
         latent_discriminator, _, ids_restore_discriminator = self.encoder(
-            self.unpatchify(pred.detach()), mask_ratio=0
+            self.unpatchify(pred), mask_ratio=0
         )
         fake_pred_discriminator = self.discriminator(
             latent_discriminator, ids_restore_discriminator
         )
         loss = fake_pred_discriminator**2
-        return loss.mean() #loss[mask == 1].mean() for only masked patches
+        return fake_pred_discriminator, loss.mean() #loss[mask == 1].mean() for only masked patches
 
-    def adversarial_loss(self, pred):
+    def adversarial_loss(self, pred_real, pred_fake):
         """Computes LSGAN adversarial loss
         
         Fake images should not contain unmasked patches.
         
         Args:
-            pred (torch.Tensor): [N, L]
-            mask (torch.Tensor): [N, L], 0 is keep, 1 is remove
+            pred_real (torch.Tensor): [N, L]
+            pred_fake (torch.Tensor): [N, L]
         Returns:
             loss (torch.Tensor): [1]
         """
-        latent_generator, _, ids_restore_generator = self.encoder(
-            self.unpatchify(pred), mask_ratio=0
-        )
-
-        fake_pred_generator = self.discriminator(
-            latent_generator, ids_restore_generator
-        )
         # [N, L], mean loss per patch:
-        loss = (fake_pred_generator - 1) ** 2
+        loss = (pred_fake - 1)**2 + (pred_real)**2
         return loss.mean()
 
-    def real_loss(self, data):
+    def real_discriminator_loss(self, data):
         """Computes LSGAN real loss
         
         Args:
@@ -260,7 +251,8 @@ class MaeGanModel(nn.Module):
         latent, _, ids_restore = self.encoder(data, mask_ratio=0)
 
         real_pred = self.discriminator(latent, ids_restore)
-        return self.real_discriminator_loss(real_pred)
+        loss = (real_pred**2).mean()
+        return real_pred, loss
 
     def forward_cycle(self, data, input_type):
         latent, _, ids_restore = self.encoder(data)
@@ -278,7 +270,7 @@ class MaeGanModel(nn.Module):
 
         loss = self.reconstruction_loss(data, pred)
 
-        return MaeGanOutputs(loss, pred, cycle_loss=loss)
+        return pred, loss
 
     def forward_generate(self, data, input_type):
         # generator step
@@ -286,27 +278,23 @@ class MaeGanModel(nn.Module):
         pred = self.decoders[input_type](latent, ids_restore)
 
         reconstruction_loss = self.reconstruction_loss(data, pred, mask)
-
-        # gan step
         # real
-        real_discriminator_loss = self.real_loss(data)
+        real_discriminator_pred, real_discriminator_loss = \
+            self.real_discriminator_loss(data)
 
         # fake
-        fake_discriminator_loss = self.fake_discriminator_loss(pred)
+        fake_discriminator_pred, fake_discriminator_loss =\
+            self.fake_discriminator_loss(pred)
+        adversarial_loss = self.adversarial_loss(
+            real_discriminator_pred, fake_discriminator_pred
+        )
 
-        adversarial_loss = self.adversarial_loss(pred)
-
-        loss = reconstruction_loss + adversarial_loss + \
-            self.discriminator_loss_weight * (
-                real_discriminator_loss + fake_discriminator_loss
-            )
-
-        return MaeGanOutputs(
-            loss, pred, mask,
+        return (
+            pred,
             reconstruction_loss,
             adversarial_loss,
-            real_discriminator_loss,
-            fake_discriminator_loss
+            real_discriminator_loss * self.discriminator_loss_weight,
+            fake_discriminator_loss * self.discriminator_loss_weight
         )
 
     def forward(self, data, input_type):
@@ -323,37 +311,84 @@ class MaeGanLM(pl.LightningModule):
         self.config = config
         self.model = MaeGanModel(**config["model"])
         self.mode_counter = 0
-        self.log_loss_every_n_steps = config["log_loss_every_n_steps"]
         self.log_image_every_n_steps = config["log_image_every_n_steps"]
+        self.gradient_clip_val = config["gradient_clip_val"]
+        self.accumulate_grad_batches = config["accumulate_grad_batches"]
+        self.automatic_optimization = False
 
-    def update_logs(self, outputs, batch_idx):
-        if batch_idx % self.log_loss_every_n_steps == 0:
-            self.log(
-                "learning_rate",
-                self.trainer.optimizers[0].param_groups[0]["lr"]
-            )
-            for key, value in outputs.__dict__.items():
-                if isinstance(value, torch.Tensor) and value.dim() == 0:
-                    self.log(key, value)
-        if batch_idx % self.log_image_every_n_steps == 0:
-            self.logger.experiment.add_image(
-                'sample_image',
-                self.model.unpatchify(
-                    outputs.pred
-                )[0][0].detach().cpu().type(torch.float32),
-                batch_idx,
-                dataformats="WH"
-            )
+    def log_images(self, pred, batch_idx):
+        self.logger.experiment.add_image(
+            self.model.mode + "/" + ["A", "B"][batch_idx % 2],
+            self.model.unpatchify(
+                pred
+            )[0].detach().cpu().type(torch.float32),
+            batch_idx // self.accumulate_grad_batches,
+            dataformats="WH"
+        )
+
+    def mae_step(self, batch):
+        pred, reconstruction_loss, adversarial_loss, \
+            real_discriminator_loss, fake_discriminator_loss = \
+                self.model(*batch)
+        self.model.enable_decoder_grads()
+        self.model.disable_discriminator_grads()
+        self.manual_backward(reconstruction_loss, retain_graph=True)
+        self.manual_backward(adversarial_loss, retain_graph=True)
+
+        self.model.disable_decoder_grads()
+        self.model.enable_discriminator_grads()
+        self.manual_backward(real_discriminator_loss, retain_graph=True)
+        self.manual_backward(fake_discriminator_loss, retain_graph=True)
+
+        self.log("loss/reconstruction", reconstruction_loss.item())
+        self.log("loss/adversarial", adversarial_loss.item())
+        self.log("loss/discriminator_real", real_discriminator_loss.item())
+        self.log("loss/discriminator_fake", fake_discriminator_loss.item())
+        return pred
+
+    def cycle_step(self, batch):
+        pred, loss = self.model(*batch)
+        self.model.enable_decoder_grads()
+        self.manual_backward(loss)
+
+        self.log("loss/cycle", loss.item())
+        return pred
 
     def training_step(self, batch, batch_idx):
-        outputs = self.model(*batch)
-        self.mode_counter += 1
+        opt = self.optimizers()
+        sch = self.lr_schedulers()
+
         if self.mode_counter == self.config["mode_repetitions"]:
             next_mode = "cycle" if self.model.mode == "mae" else "mae"
             self.model.set_mode(next_mode)
             self.mode_counter = 0
-        self.update_logs(outputs, batch_idx)
-        return outputs.loss
+        #outputs = self.model(*batch)
+        # break up optimization to multiple steps.
+
+        if self.model.mode == "mae":
+            pred = self.mae_step(batch)
+
+        elif self.model.mode == "cycle":
+            pred = self.cycle_step(batch)
+
+        if batch_idx % self.accumulate_grad_batches == 0:
+            self.log(
+                "learning_rate",
+                self.trainer.optimizers[0].param_groups[0]["lr"]
+            )
+            if batch_idx > 0:
+                self.clip_gradients(
+                    opt,
+                    gradient_clip_val=self.gradient_clip_val,
+                    gradient_clip_algorithm="norm"
+                )
+                opt.step()
+                sch.step()
+                opt.zero_grad()
+
+        if batch_idx % self.log_image_every_n_steps in [0, 1, 2, 3]:
+            self.log_images(pred, batch_idx)
+        self.mode_counter += 1
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(
