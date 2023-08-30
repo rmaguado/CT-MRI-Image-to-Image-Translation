@@ -1,0 +1,33 @@
+{
+    "batch_size": 4,
+    "logger": {
+        "save_dir": "/nfs/home/clruben/workspace/nst/models/cyclegan_light/runs"
+    },
+    "trainer": {
+        "accelerator": "gpu",
+        "default_root_dir": "/nfs/home/clruben/workspace/nst/models/cyclegan_light/",
+        "devices": [0],
+        "precision": "bf16",
+        "log_every_n_steps": 1,
+        "enable_checkpointing": true,
+        "max_epochs": 3
+    },
+    "checkpoint": {
+        "monitor":"loss/reconstruction",
+        "save_last": true,
+        "dirpath": "/nfs/home/clruben/workspace/nst/models/cyclegan_light/checkpoints",
+        "filename": "model_checkpoint",
+        "save_top_k": 2,
+        "every_n_train_steps": 2500
+    },
+    "model": {
+        "in_channels": 1,
+        "out_channels": 1,
+        "hid_channels": 64,
+        "betas": [0.5, 0.999],
+        "lambda_w": 10,
+        "lr": 0.002,
+        "accumulate_grad_batches": 4,
+        "log_image_every_n_steps": 500
+    }
+}
