@@ -42,6 +42,10 @@ def count_total_slices(sources, mode):
                 fails += 1
                 fail_idx.append(i)
                 continue
+        if np.isnan(np.sum(image)):
+            fails += 1
+            fail_idx.append(i)
+            continue
         total_slices += min(image.shape)
     if fails > 0:
         print(f"Failed to load {fails} nifti files")
@@ -126,9 +130,17 @@ def main(dataset_root, mode="CT"):
 
     for i in loop:
         filename = sources.iloc[i]["FinalPath"]
-        nii_ = nib.load(filename)
-        nii_data = nii_.get_fdata().astype(np.float32)
+        try:
+            nii_ = nib.load(filename)
+            nii_data = nii_.get_fdata().astype(np.float32)
+        except Exception:
+            continue
+        if mode == "MR":
+            if len(nii_data.shape) > 3 or np.min(nii_data) < 0:
+                continue
         nii_data = resize(nii_data)
+        if np.isnan(np.sum(nii_data)):
+            continue
         nii_data = winsorize_and_rescale(nii_data, limits)
 
         for slice_ in nii_data:
