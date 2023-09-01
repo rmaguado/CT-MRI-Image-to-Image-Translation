@@ -4,7 +4,7 @@ import torch
 import lightning.pytorch as pl
 
 from dataloaders import Dataloader
-from models.mae_gan.mae_gan import MaeGanLM
+from models.maegan.network import MaeGanLM
 
 DATA_PATH = "/nfs/home/clruben/workspace/nst/data/batch1"
 CONFIG_PATH = "/nfs/home/clruben/workspace/nst/models/mae_gan/config.json"

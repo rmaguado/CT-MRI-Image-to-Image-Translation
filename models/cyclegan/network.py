@@ -3,10 +3,10 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from models.cyclegan_light.networks import Generator, Discriminator
+from models.cyclegan.blocks import Generator, Discriminator
 
 
-class CycleGAN(pl.LightningModule):
+class Cyclegan(pl.LightningModule):
     def __init__(
         self,
         in_channels,

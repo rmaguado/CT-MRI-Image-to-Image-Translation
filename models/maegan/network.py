@@ -3,7 +3,7 @@ from torch import nn
 
 import lightning.pytorch as pl
 
-from models.mae_gan.blocks import EncoderViT, DecoderViT, DiscriminatorViT
+from models.maegan.blocks import EncoderViT, DecoderViT, DiscriminatorViT
 from schedulers.schedulers import CosineAnnealingWarmupRestarts
 
 class MaeGanOutputs:

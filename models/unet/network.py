@@ -7,9 +7,10 @@ https://github.com/milesial/Pytorch-UNet/tree/master
 
 import torch.nn as nn
 import torch
+import lightning.pytorch as pl
 
-from models.unet.unet_parts import DoubleConv, Down, Up, OutConv
-
+from models.unet.blocks import DoubleConv, Down, Up, OutConv
+from schedulers.schedulers import CosineAnnealingWarmupRestarts
 
 class UNetOutputs():
     def __init__(self, pred, loss):
@@ -67,14 +68,37 @@ class UNet(nn.Module):
         target = target[mask]
         return self.critereon(pred, target)
 
-    def use_checkpointing(self):
-        self.inc = torch.utils.checkpoint(self.inc)
-        self.down1 = torch.utils.checkpoint(self.down1)
-        self.down2 = torch.utils.checkpoint(self.down2)
-        self.down3 = torch.utils.checkpoint(self.down3)
-        self.down4 = torch.utils.checkpoint(self.down4)
-        self.up1 = torch.utils.checkpoint(self.up1)
-        self.up2 = torch.utils.checkpoint(self.up2)
-        self.up3 = torch.utils.checkpoint(self.up3)
-        self.up4 = torch.utils.checkpoint(self.up4)
-        self.outc = torch.utils.checkpoint(self.outc)
+
+class UNetLM(pl.LightningModule):
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+        self.model = UNet(**config["model"])
+        self.log_image_every_n_steps = config["log_image_every_n_steps"]
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.AdamW(
+            self.parameters(),
+            lr=self.config["scheduler"]["min_lr"]
+        )
+        lr_scheduler = CosineAnnealingWarmupRestarts(
+            optimizer, **self.config["scheduler"]
+        )
+        return [optimizer], [{"scheduler":lr_scheduler, "interval": "step"}]
+
+    def log_images(self, input_img, pred):
+        self.logger.experiment.add_images(
+            "input", input_img.detach().cpu().type(torch.float32), self.global_step
+        )
+        self.logger.experiment.add_images(
+            "pred", pred, self.global_step
+        )
+
+    def training_step(self, batch, batch_idx):
+        input_img, target = batch
+        outputs = self.model(input_img, target)
+        loss = outputs.loss
+        self.log('loss', loss.item())
+        if batch_idx % self.log_image_every_n_steps == 0:
+            self.log_images(input_img, outputs.pred)
+        return loss

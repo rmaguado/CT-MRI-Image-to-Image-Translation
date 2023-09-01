@@ -1,48 +1,33 @@
 {
-    "model" : {
+    "batch_size": 4,
+    "logger": {
+        "save_dir": "/home/radiomica/ruben/CT-MRI-Image-to-Image-Translation/models/cyclegan/"
+    },
+    "trainer": {
+        "accelerator": "gpu",
+        "default_root_dir": "/home/radiomica/ruben/CT-MRI-Image-to-Image-Translation/models/cyclegan/",
+        "devices": [0],
+        "precision": "bf16",
+        "log_every_n_steps": 1,
+        "enable_checkpointing": true,
+        "max_epochs": 3
+    },
+    "checkpoint": {
+        "monitor":"loss/reconstruction",
+        "save_last": true,
+        "dirpath": "/home/radiomica/ruben/CT-MRI-Image-to-Image-Translation/models/cyclegan/checkpoints",
+        "filename": "model_checkpoint",
+        "save_top_k": 2,
+        "every_n_train_steps": 2500
+    },
+    "model": {
         "in_channels": 1,
         "out_channels": 1,
-        "generator_filters": 64,
-        "discriminator_filters": 64,
-        "discriminator_layers": 3,
-        "generator_name": "resnet_9blocks",
-        "discriminator_name": "basic",
-        "gan_mode": "lsgan",
-        "direction": "AtoB",
-        "norm_type": "instance",
-        "lambda_identity": 0.5,
-        "lambda_A": 10.0,
-        "lambda_B": 10.0,
-        "beta1": 0.5,
-        "lr": 0.0002,
-        "no_dropout": false,
-        "init_type": "normal",
-        "init_gain": 0.02,
-        "pool_size": 50,
-        "gpu_ids": [1],
-        "device": "cuda:1",
-        "isTrain": true
-    },
-    "trainer" : {
-        "model_name" : "cyclegan",
-        "train_epochs" : 5,
-        "device" : "cuda:1",
-        "log_dir" : "/nfs/home/clruben/workspace/nst/models/cyclegan/logs",
-        "loading_model" : false,
-        "load_model_dir" : "",
-        "enable_tensorboard" : true,
-        "tensorboard_logdir" : "/nfs/home/clruben/workspace/nst/runs",
-        "tensorboard_log_frequency" : 575,
-        "enable_tqdm" : false,
-        "enable_warmup" : true,
-        "warmup_steps" : 5000,
-        "warmup_factor" : 10.0,
-        "learning_rate" : 1e-4,
-        "save_dir" : "/nfs/home/clruben/workspace/nst/models/cyclegan/checkpoints",
-        "enable_batch_checkpointing" : true,
-        "save_frequency" : 15000,
-        "enable_delete_worse_models" : false,
-        "max_models_saved" : 3,
-        "model_kwargs" : []
+        "hid_channels": 64,
+        "betas": [0.5, 0.999],
+        "lambda_w": 10,
+        "lr": 0.002,
+        "accumulate_grad_batches": 4,
+        "log_image_every_n_steps": 500
     }
 }

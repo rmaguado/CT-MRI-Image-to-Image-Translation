@@ -1,35 +1,43 @@
-"""
-Train a CycleGAN model.
-"""
-
 import json
-import os
 
-from models.cyclegan.cyclegan_model import CycleGANModel
-from models.cyclegan.cyclegan_trainer import CycleGANTrainer, BlankOptim
-from models.cyclegan.cyclegan_dataloader import CycleGANDataloader
+import torch
+import lightning.pytorch as pl
 
-DATA_ROOT_PATH = "/nfs/home/clruben/workspace/nst/data/"
+from models.cyclegan.network import Cyclegan
+from dataloaders import CycleganDataloader
+
+DATA_PATH = "/nfs/home/clruben/workspace/nst/data/"
 CONFIG_PATH = "/nfs/home/clruben/workspace/nst/models/cyclegan/config.json"
+
+torch.set_float32_matmul_precision('medium')
 
 with open(CONFIG_PATH, encoding="utf-8") as file:
     config = json.load(file)
-lr = config["trainer"]["learning_rate"]
 
-train_loader = CycleGANDataloader(
-    DATA_ROOT_PATH,
+train_loader = CycleganDataloader(
+    DATA_PATH,
     'train',
-    mini_batch_sample_size=2
+    batch_size=config["batch_size"]
 )
 
-model = CycleGANModel(**config["model"])
-optim = BlankOptim()
+model = CycleGAN(**config["model"])
 
-trainer = CycleGANTrainer(
-    model,
-    optim,
-    config,
+logger = pl.loggers.TensorBoardLogger(
+    **config["logger"]
+)
+
+checkpoint_callback = pl.callbacks.ModelCheckpoint(
+    **config["checkpoint"]
+)
+
+trainer = pl.Trainer(
+    enable_progress_bar=False,
+    logger=logger,
+    callbacks=[checkpoint_callback],
     **config["trainer"]
 )
-
-trainer.train(train_loader)
+trainer.fit(
+    model=model,
+    train_dataloaders=train_loader,
+    #ckpt_path="/nfs/home/clruben/workspace/nst/models/mae_gan/checkpoints/last-v3.ckpt"
+)

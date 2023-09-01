@@ -1,38 +1,43 @@
 import json
-from torch.optim import AdamW
 
-from models.unet.unet_dataloader import UNetDataloader
-from models.unet.unet_model import UNet
-from trainer import Trainer
+import torch
+import lightning.pytorch as pl
 
-data_root_path = "/nfs/home/clruben/workspace/nst/data/reg"
-config_path = "/nfs/home/clruben/workspace/nst/models/unet/config.json"
+from dataloaders import UNetDataloader
+from models.unet.network import UNetLM
 
-with open(config_path) as file:
+torch.set_float32_matmul_precision('medium')
+
+DATA_PATH = "/home/radiomica/ruben/CT-MRI-Image-to-Image-Translation/data/reg"
+CONFIG_PATH = "/home/radiomica/ruben/CT-MRI-Image-to-Image-Translation/models/unet/config.json"
+
+with open(CONFIG_PATH, encoding="utf-8") as file:
     config = json.load(file)
-lr = config["trainer"]["learning_rate"]
 
 train_loader = UNetDataloader(
     data_root_path,
     'train',
     enable_data_augmentation=True
 )
-test_loader = UNetDataloader(
-    data_root_path,
-    'test',
-    enable_data_augmentation=False
+
+model = UNetLM(config)
+
+logger = pl.loggers.TensorBoardLogger(
+    **config["logger"]
 )
 
-model = UNet(**config["model"])
-optim = AdamW(model.parameters(), lr=lr)
+checkpoint_callback = pl.callbacks.ModelCheckpoint(
+    **config["checkpoint"]
+)
 
-trainer = Trainer(
-    model, 
-    optim, 
-    config, 
+trainer = pl.Trainer(
+    enable_progress_bar=False,
+    logger=logger,
+    callbacks=[checkpoint_callback],
     **config["trainer"]
 )
-
-trainer.train(train_loader, test_loader)
-#model.mode = "translation"
-#trainer.train(testloader, testloader)
+trainer.fit(
+    model=model,
+    train_dataloaders=train_loader
+    #ckpt_path="/nfs/home/clruben/workspace/nst/models/mae_gan/checkpoints/model_checkpoint.ckpt"
+)
