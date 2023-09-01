@@ -58,7 +58,13 @@ class Dataset:
             np.random.shuffle(self.index_list)
 
     def __getitem__(self, idx):
-        return self.data[idx]
+        if idx >= self.__len__():
+            raise IndexError(
+                f"Index {idx} is out of bounds for dataset of size {self.__len__()}"
+            )
+        return self.data[
+            self.index_list[idx*self.batch_size:(idx+1)*self.batch_size]
+        ]
 
     def __len__(self):
         return self.total_images // self.batch_size
@@ -67,10 +73,12 @@ class Dataset:
         return self
 
     def __next__(self):
-        if self.counter == self.total_images:
+        if self.counter == self.__len__():
             self.counter = 0
         batch = self.data[
-            self.index_list[self.counter:self.counter+self.batch_size]
+            self.index_list[
+                self.counter*self.batch_size : (self.counter+1)*self.batch_size
+            ]
         ]
         self.counter += self.batch_size
         return batch
@@ -104,7 +112,7 @@ class Dataloader:
         ) * 2
         self.mode = True
         self.counter = 0
-        
+
     def data_augmentation(self, batch_data):
         """Reflects and rotates the image at random.
 
@@ -128,9 +136,10 @@ class Dataloader:
         return self
 
     def __next__(self):
-        self.mode = not self.mode
         if self.counter == self.loop_length:
             self.counter = 0
+            raise StopIteration
+        self.mode = not self.mode
         next_item = torch.from_numpy(
             next(self.loaders[self.mode])
         )
