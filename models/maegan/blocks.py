@@ -4,7 +4,7 @@ from torch import nn
 from timm.models.vision_transformer import PatchEmbed, Block
 
 from utils.pos_embed import get_2d_sincos_pos_embed
-from utils.vit_blocks import _init_weights
+from utils.params import _init_weights
 
 def random_masking(x, mask_ratio):
     """Perform per-sample random masking by per-sample shuffling.

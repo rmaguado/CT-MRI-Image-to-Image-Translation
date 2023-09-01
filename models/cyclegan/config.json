@@ -1,11 +1,11 @@
 {
     "batch_size": 4,
     "logger": {
-        "save_dir": "/home/radiomica/ruben/CT-MRI-Image-to-Image-Translation/models/cyclegan/"
+        "save_dir": "/nfs/home/clruben/workspace/nst/runs",
+        "name": "cyclegan"
     },
     "trainer": {
         "accelerator": "gpu",
-        "default_root_dir": "/home/radiomica/ruben/CT-MRI-Image-to-Image-Translation/models/cyclegan/",
         "devices": [0],
         "precision": "bf16",
         "log_every_n_steps": 1,
@@ -15,7 +15,7 @@
     "checkpoint": {
         "monitor":"loss/reconstruction",
         "save_last": true,
-        "dirpath": "/home/radiomica/ruben/CT-MRI-Image-to-Image-Translation/models/cyclegan/checkpoints",
+        "dirpath": "/nfs/home/clruben/workspace/nst/models/cyclegan/checkpoints",
         "filename": "model_checkpoint",
         "save_top_k": 2,
         "every_n_train_steps": 2500

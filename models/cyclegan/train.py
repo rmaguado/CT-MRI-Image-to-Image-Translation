@@ -20,7 +20,7 @@ train_loader = CycleganDataloader(
     batch_size=config["batch_size"]
 )
 
-model = CycleGAN(**config["model"])
+model = Cyclegan(**config["model"])
 
 logger = pl.loggers.TensorBoardLogger(
     **config["logger"]

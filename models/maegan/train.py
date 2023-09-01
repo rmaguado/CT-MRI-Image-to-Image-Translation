@@ -6,8 +6,8 @@ import lightning.pytorch as pl
 from dataloaders import Dataloader
 from models.maegan.network import MaeGanLM
 
-DATA_PATH = "/nfs/home/clruben/workspace/nst/data/batch1"
-CONFIG_PATH = "/nfs/home/clruben/workspace/nst/models/mae_gan/config.json"
+DATA_PATH = "/nfs/home/clruben/workspace/nst/data/"
+CONFIG_PATH = "/nfs/home/clruben/workspace/nst/models/maegan/config.json"
 
 torch.set_float32_matmul_precision('medium')
 

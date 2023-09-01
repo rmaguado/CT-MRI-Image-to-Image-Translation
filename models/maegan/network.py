@@ -321,7 +321,7 @@ class MaeGanLM(pl.LightningModule):
             self.model.mode + "/" + ["A", "B"][batch_idx % 2],
             self.model.unpatchify(
                 pred
-            )[0].detach().cpu().type(torch.float32),
+            )[0][0].detach().cpu().type(torch.float32),
             batch_idx // self.accumulate_grad_batches,
             dataformats="WH"
         )

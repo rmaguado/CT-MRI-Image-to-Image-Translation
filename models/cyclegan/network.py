@@ -3,7 +3,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from models.cyclegan.blocks import Generator, Discriminator
+from models.cyclegan.blocks import GeneratorUNet, DiscriminatorUNet
 
 
 class Cyclegan(pl.LightningModule):
@@ -25,21 +25,15 @@ class Cyclegan(pl.LightningModule):
         self.accumulate_grad_batches = accumulate_grad_batches
         self.log_image_every_n_steps = log_image_every_n_steps
 
-        self.gen_a = Generator(in_channels, out_channels, hid_channels).apply(self.weights_init)
-        self.gen_b = Generator(in_channels, out_channels, hid_channels).apply(self.weights_init)
-        self.disc_a = Discriminator(in_channels, hid_channels).apply(self.weights_init)
-        self.disc_b = Discriminator(in_channels, hid_channels).apply(self.weights_init)
+        self.gen_a = GeneratorUNet(in_channels, out_channels, hid_channels).apply(self.weights_init)
+        self.gen_b = GeneratorUNet(in_channels, out_channels, hid_channels).apply(self.weights_init)
+        self.disc_a = DiscriminatorUNet(in_channels, hid_channels).apply(self.weights_init)
+        self.disc_b = DiscriminatorUNet(in_channels, hid_channels).apply(self.weights_init)
 
         self.automatic_optimization = False
 
     def forward(self, z):
         return self.gen_a(z)
-
-    def weights_init(self, m):
-        if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d, nn.InstanceNorm2d)):
-            nn.init.normal_(m.weight, 0., 0.02)
-            if m.bias is not None:
-                nn.init.constant_(m.bias, 0.)
 
     def adv_criterion(self, y_hat, y):
         return F.binary_cross_entropy_with_logits(y_hat, y)
