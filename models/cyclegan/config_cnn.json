@@ -13,21 +13,27 @@
         "max_epochs": 3
     },
     "checkpoint": {
-        "monitor":"loss/reconstruction",
         "save_last": true,
         "dirpath": "/nfs/home/clruben/workspace/nst/models/cyclegan/checkpoints",
         "filename": "model_checkpoint",
-        "save_top_k": 2,
-        "every_n_train_steps": 2500
+        "every_n_train_steps": 1000
     },
     "model": {
-        "in_channels": 1,
-        "out_channels": 1,
-        "hid_channels": 64,
         "betas": [0.5, 0.999],
         "lambda_w": 10,
         "lr": 0.002,
         "accumulate_grad_batches": 4,
-        "log_image_every_n_steps": 500
+        "log_image_every_n_steps": 500,
+        "generator": {
+            "in_channels": 1,
+            "out_channels": 1,
+            "hid_channels": 64,
+            "tanh_activation": false
+        },
+        "discriminator": {
+            "in_channels": 1,
+            "hid_channels": 64
+        },
+        "block_type": "CNN"
     }
 }

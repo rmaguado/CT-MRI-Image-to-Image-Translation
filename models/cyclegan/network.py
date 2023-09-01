@@ -3,32 +3,30 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from models.cyclegan.blocks import GeneratorUNet, DiscriminatorUNet
+from models.cyclegan.blocks import (
+    GeneratorUNet, DiscriminatorUNet, GeneratorViT, DiscriminatorViT
+)
 
 
 class Cyclegan(pl.LightningModule):
-    def __init__(
-        self,
-        in_channels,
-        out_channels,
-        hid_channels,
-        lr,
-        betas,
-        lambda_w,
-        accumulate_grad_batches,
-        log_image_every_n_steps
-    ):
+    def __init__(self, config):
         super().__init__()
-        self.learning_rate = lr
-        self.betas = betas
-        self.lambda_w = lambda_w
-        self.accumulate_grad_batches = accumulate_grad_batches
-        self.log_image_every_n_steps = log_image_every_n_steps
+        self.learning_rate = config["lr"]
+        self.betas = config["betas"]
+        self.lambda_w = config["lambda_w"]
+        self.accumulate_grad_batches = config["accumulate_grad_batches"]
+        self.log_image_every_n_steps = config["log_image_every_n_steps"]
 
-        self.gen_a = GeneratorUNet(in_channels, out_channels, hid_channels).apply(self.weights_init)
-        self.gen_b = GeneratorUNet(in_channels, out_channels, hid_channels).apply(self.weights_init)
-        self.disc_a = DiscriminatorUNet(in_channels, hid_channels).apply(self.weights_init)
-        self.disc_b = DiscriminatorUNet(in_channels, hid_channels).apply(self.weights_init)
+        if config["block_type"] == "CNN":
+            self.gen_a = GeneratorUNet(**config["generator"])
+            self.gen_b = GeneratorUNet(**config["generator"])
+            self.disc_a = DiscriminatorUNet(config["discriminator"])
+            self.disc_b = DiscriminatorUNet(config["discriminator"])
+        else:
+            self.gen_a = GeneratorViT(**config["generator"])
+            self.gen_b = GeneratorViT(**config["generator"])
+            self.disc_a = DiscriminatorViT(config["discriminator"])
+            self.disc_b = DiscriminatorViT(config["discriminator"])
 
         self.automatic_optimization = False
 
@@ -119,11 +117,13 @@ class Cyclegan(pl.LightningModule):
         if batch_idx % self.log_image_every_n_steps == 0:
             self.logger.experiment.add_images(
                 "fake_A",
-                self.gen_b(real_b)[0].detach().cpu().type(torch.float32),
-                self.current_epoch
+                self.gen_b(real_b)[0][0].detach().cpu().type(torch.float32),
+                self.current_epoch,
+                dataformats="WH"
             )
             self.logger.experiment.add_images(
                 "fake_B",
-                self.gen_a(real_a)[0].detach().cpu().type(torch.float32),
-                self.current_epoch
+                self.gen_a(real_a)[0][0].detach().cpu().type(torch.float32),
+                self.current_epoch,
+                dataformats="WH"
             )

@@ -7,7 +7,7 @@ from models.cyclegan.network import Cyclegan
 from dataloaders import CycleganDataloader
 
 DATA_PATH = "/nfs/home/clruben/workspace/nst/data/"
-CONFIG_PATH = "/nfs/home/clruben/workspace/nst/models/cyclegan/config.json"
+CONFIG_PATH = "/nfs/home/clruben/workspace/nst/models/cyclegan/config_cnn.json"
 
 torch.set_float32_matmul_precision('medium')
 

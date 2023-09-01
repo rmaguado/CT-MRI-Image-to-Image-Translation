@@ -3,7 +3,7 @@ import torch
 from timm.models.vision_transformer import PatchEmbed, Block
 
 from utils.pos_embed import get_2d_sincos_pos_embed
-from utils.weights import _init_weights
+from utils.params import _init_weights
 
 
 class ViT(nn.Module):
@@ -44,6 +44,12 @@ class ViT(nn.Module):
             ) for i in range(depth)
         ])
         self.norm = norm_layer(embed_dim)
+        
+        self.pred = nn.Linear(
+            embed_dim,
+            patch_size**2 * in_chans,
+            bias=True
+        )
 
         self.initialize_weights()
 
@@ -78,6 +84,38 @@ class ViT(nn.Module):
             if 'pos_embed' not in name:
                 parameter.requires_grad = True
 
+    def unpatchify(self, patches):
+        """Converts patches to images
+        
+        Args:
+            patches (torch.Tensor): [N, L, patch_size**2 *channels]
+        Returns:
+            imgs (torch.Tensor): [N, channels, H, W]
+        """
+        height = width = int(patches.shape[1]**.5)
+        assert height * width == patches.shape[1]
+
+        patches = patches.reshape(
+            shape=(
+                patches.shape[0],
+                height,
+                width,
+                self.patch_size,
+                self.patch_size,
+                self.in_chans
+            )
+        )
+        patches = torch.einsum('nhwpqc->nchpwq', patches)
+        imgs = patches.reshape(
+            shape=(
+                patches.shape[0],
+                self.in_chans,
+                height * self.patch_size,
+                height * self.patch_size
+                )
+        )
+        return imgs
+
     def forward(self, x):
         """
         Args:
@@ -101,8 +139,14 @@ class ViT(nn.Module):
         for blk in self.blocks:
             x = blk(x)
         x = self.norm(x)
+        
+        # predictor projection
+        x = self.pred(x)
 
-        return x
+        # remove cls token
+        x = x[:, 1:, :]
+
+        return self.unpatchify(x)
 
 
 class Downsampling(nn.Module):
@@ -190,6 +234,7 @@ class GeneratorUNet(nn.Module):
             out_layer,
             nn.Tanh()
         ) if tanh_activation else out_layer
+        
         self.initialize_weights()
 
     def initialize_weights(self):
