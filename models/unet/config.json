@@ -9,7 +9,7 @@
         "accelerator": "gpu",
         "default_root_dir": "/home/radiomica/ruben/CT-MRI-Image-to-Image-Translation/models/unet/",
         "devices": [0],
-        "precision": "bf16",
+        "precision": "bf16-mixed",
         "log_every_n_steps": 1,
         "enable_checkpointing": true,
         "max_epochs": 2

@@ -9,7 +9,7 @@
     "trainer": {
         "accelerator": "gpu",
         "devices": [0],
-        "precision": "bf16",
+        "precision": "bf16-mixed",
         "log_every_n_steps": 4,
         "enable_checkpointing": true,
         "max_epochs": 2
@@ -25,7 +25,7 @@
     "scheduler" : {
         "first_cycle_steps" : 10000,
         "cycle_mult" :  1.0,
-        "max_lr" : 0.01,
+        "max_lr" : 0.005,
         "min_lr" : 1e-4,
         "warmup_steps" : 250,
         "gamma" : 0.75,

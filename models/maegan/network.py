@@ -208,37 +208,22 @@ class MaeGanModel(nn.Module):
             return (loss * mask).sum() / mask.sum()
         return loss.mean()
 
-    def fake_discriminator_loss(self, pred):
+    def fake_discriminator_loss(self, decoder_pred):
         """Computes LSGAN discriminator loss for fake images.
         
         Args:
-            pred (torch.Tensor): [N, L]
+            decoder_pred (torch.Tensor): [N, L]
         Returns:
             loss (torch.Tensor): [1]
         """
         latent_discriminator, _, ids_restore_discriminator = self.encoder(
-            self.unpatchify(pred), mask_ratio=0
+            self.unpatchify(decoder_pred), mask_ratio=0
         )
         fake_pred_discriminator = self.discriminator(
             latent_discriminator, ids_restore_discriminator
         )
-        loss = fake_pred_discriminator**2
+        loss = (fake_pred_discriminator)**2 / 2
         return fake_pred_discriminator, loss.mean() #loss[mask == 1].mean() for only masked patches
-
-    def adversarial_loss(self, pred_real, pred_fake):
-        """Computes LSGAN adversarial loss
-        
-        Fake images should not contain unmasked patches.
-        
-        Args:
-            pred_real (torch.Tensor): [N, L]
-            pred_fake (torch.Tensor): [N, L]
-        Returns:
-            loss (torch.Tensor): [1]
-        """
-        # [N, L], mean loss per patch:
-        loss = (pred_fake - 1)**2 + (pred_real)**2
-        return loss.mean()
 
     def real_discriminator_loss(self, data):
         """Computes LSGAN real loss
@@ -251,8 +236,23 @@ class MaeGanModel(nn.Module):
         latent, _, ids_restore = self.encoder(data, mask_ratio=0)
 
         real_pred = self.discriminator(latent, ids_restore)
-        loss = (real_pred**2).mean()
+        loss = ((real_pred - 1)**2).mean() / 2
         return real_pred, loss
+    
+    def adversarial_loss(self, disc_pred_real, disc_pred_fake):
+        """Computes LSGAN adversarial loss
+        
+        Fake images should not contain unmasked patches.
+        
+        Args:
+            disc_pred_real (torch.Tensor): [N, L]
+            disc_pred_fake (torch.Tensor): [N, L]
+        Returns:
+            loss (torch.Tensor): [1]
+        """
+        # [N, L], mean loss per patch:
+        loss = ((disc_pred_fake-1)**2 + (disc_pred_real)**2).mean() / 2
+        return loss
 
     def forward_cycle(self, data, input_type):
         latent, _, ids_restore = self.encoder(data)
@@ -272,7 +272,7 @@ class MaeGanModel(nn.Module):
 
         return pred, loss
 
-    def forward_generate(self, data, input_type):
+    def forward_mae(self, data, input_type):
         # generator step
         latent, mask, ids_restore = self.encoder(data, self.mask_ratio)
         pred = self.decoders[input_type](latent, ids_restore)
@@ -299,7 +299,7 @@ class MaeGanModel(nn.Module):
 
     def forward(self, data, input_type):
         if self.mode == "mae":
-            return self.forward_generate(data, input_type)
+            return self.forward_mae(data, input_type)
         elif self.mode == "cycle":
             return self.forward_cycle(data, input_type)
         raise ValueError("Unknown mode")
@@ -362,8 +362,6 @@ class MaeGanLM(pl.LightningModule):
             next_mode = "cycle" if self.model.mode == "mae" else "mae"
             self.model.set_mode(next_mode)
             self.mode_counter = 0
-        #outputs = self.model(*batch)
-        # break up optimization to multiple steps.
 
         if self.model.mode == "mae":
             pred = self.mae_step(batch)
