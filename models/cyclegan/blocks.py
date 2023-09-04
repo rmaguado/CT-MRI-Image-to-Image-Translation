@@ -19,6 +19,9 @@ class ViT(nn.Module):
         norm_layer=nn.LayerNorm
     ):
         super().__init__()
+        
+        self.patch_size = patch_size
+        self.in_chans = in_chans
 
         self.patch_embed = PatchEmbed(
             img_size,
@@ -254,7 +257,7 @@ class GeneratorUNet(nn.Module):
         return self.feature_block(x)
 
 class DiscriminatorUNet(nn.Module):
-    def __init__(self, in_channels, hid_channels):
+    def __init__(self, in_channels=1, hid_channels=32):
         super().__init__()
         self.block = nn.Sequential(
             Downsampling(in_channels, hid_channels, norm=False), #64x128x128

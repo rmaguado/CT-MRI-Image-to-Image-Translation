@@ -2,19 +2,19 @@
     "batch_size": 4,
     "logger": {
         "save_dir": "/nfs/home/clruben/workspace/nst/runs",
-        "name": "cyclegan"
+        "name": "cyclegan_cnn"
     },
     "trainer": {
         "accelerator": "gpu",
         "devices": [0],
-        "precision": "bf16",
+        "precision": "bf16-mixed",
         "log_every_n_steps": 1,
         "enable_checkpointing": true,
         "max_epochs": 3
     },
     "checkpoint": {
         "save_last": true,
-        "dirpath": "/nfs/home/clruben/workspace/nst/models/cyclegan/checkpoints",
+        "dirpath": "/nfs/home/clruben/workspace/nst/models/cyclegan/checkpoints/cnn",
         "filename": "model_checkpoint",
         "every_n_train_steps": 1000
     },
@@ -23,7 +23,7 @@
         "lambda_w": 10,
         "lr": 0.002,
         "accumulate_grad_batches": 4,
-        "log_image_every_n_steps": 500,
+        "log_image_every_n_steps": 100,
         "generator": {
             "in_channels": 1,
             "out_channels": 1,

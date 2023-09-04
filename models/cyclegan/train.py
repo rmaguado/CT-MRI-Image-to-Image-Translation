@@ -7,7 +7,7 @@ from models.cyclegan.network import Cyclegan
 from dataloaders import CycleganDataloader
 
 DATA_PATH = "/nfs/home/clruben/workspace/nst/data/"
-CONFIG_PATH = "/nfs/home/clruben/workspace/nst/models/cyclegan/config_cnn.json"
+CONFIG_PATH = "/nfs/home/clruben/workspace/nst/models/cyclegan/config_vit.json"
 
 torch.set_float32_matmul_precision('medium')
 
@@ -20,7 +20,7 @@ train_loader = CycleganDataloader(
     batch_size=config["batch_size"]
 )
 
-model = Cyclegan(**config["model"])
+model = Cyclegan(config["model"])
 
 logger = pl.loggers.TensorBoardLogger(
     **config["logger"]
@@ -39,5 +39,5 @@ trainer = pl.Trainer(
 trainer.fit(
     model=model,
     train_dataloaders=train_loader,
-    #ckpt_path="/nfs/home/clruben/workspace/nst/models/mae_gan/checkpoints/last-v3.ckpt"
+    ckpt_path="/nfs/home/clruben/workspace/nst/models/cyclegan/checkpoints/vit/model_checkpoint.ckpt"
 )

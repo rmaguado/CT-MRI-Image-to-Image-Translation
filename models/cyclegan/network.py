@@ -20,13 +20,15 @@ class Cyclegan(pl.LightningModule):
         if config["block_type"] == "CNN":
             self.gen_a = GeneratorUNet(**config["generator"])
             self.gen_b = GeneratorUNet(**config["generator"])
-            self.disc_a = DiscriminatorUNet(config["discriminator"])
-            self.disc_b = DiscriminatorUNet(config["discriminator"])
-        else:
+            self.disc_a = DiscriminatorUNet(**config["discriminator"])
+            self.disc_b = DiscriminatorUNet(**config["discriminator"])
+        elif config["block_type"] == "ViT":
             self.gen_a = GeneratorViT(**config["generator"])
             self.gen_b = GeneratorViT(**config["generator"])
-            self.disc_a = DiscriminatorViT(config["discriminator"])
-            self.disc_b = DiscriminatorViT(config["discriminator"])
+            self.disc_a = DiscriminatorViT(**config["discriminator"])
+            self.disc_b = DiscriminatorViT(**config["discriminator"])
+        else:
+            raise ValueError("Unrecognized value for block_type")
 
         self.automatic_optimization = False
 
@@ -34,7 +36,7 @@ class Cyclegan(pl.LightningModule):
         return self.gen_a(z)
 
     def adv_criterion(self, y_hat, y):
-        return F.binary_cross_entropy_with_logits(y_hat, y)
+        return ((y_hat - y)**2).mean()#F.binary_cross_entropy_with_logits(y_hat, y)
 
     def recon_criterion(self, y_hat, y):
         return F.l1_loss(y_hat, y)
@@ -109,20 +111,37 @@ class Cyclegan(pl.LightningModule):
                 opt.step()
                 opt.zero_grad()
 
-        self.log("gen_loss_PM", gen_loss_a)
-        self.log("gen_loss_MP", gen_loss_b)
-        self.log("disc_loss_M", disc_loss_a)
-        self.log("disc_loss_P", disc_loss_b)
+        self.log("loss/generator_A", gen_loss_a)
+        self.log("loss/generator_B", gen_loss_b)
+        self.log("loss/discriminator_A", disc_loss_a)
+        self.log("loss/discriminator_B", disc_loss_b)
+        self.log(
+            "learning_rate",
+            self.optimizers()[0].param_groups[0]["lr"],
+        )
 
-        if batch_idx % self.log_image_every_n_steps == 0:
+        if (batch_idx // self.accumulate_grad_batches) %\
+                self.log_image_every_n_steps == 0:
             self.logger.experiment.add_images(
-                "fake_A",
+                "A/real",
+                real_a[0][0].detach().cpu().type(torch.float32),
+                self.current_epoch,
+                dataformats="WH"
+            )
+            self.logger.experiment.add_images(
+                "A/fake",
                 self.gen_b(real_b)[0][0].detach().cpu().type(torch.float32),
                 self.current_epoch,
                 dataformats="WH"
             )
             self.logger.experiment.add_images(
-                "fake_B",
+                "B/real",
+                real_b[0][0].detach().cpu().type(torch.float32),
+                self.current_epoch,
+                dataformats="WH"
+            )
+            self.logger.experiment.add_images(
+                "B/fake",
                 self.gen_a(real_a)[0][0].detach().cpu().type(torch.float32),
                 self.current_epoch,
                 dataformats="WH"
