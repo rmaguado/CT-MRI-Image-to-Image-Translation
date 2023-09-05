@@ -47,7 +47,7 @@ class ViT(nn.Module):
             ) for i in range(depth)
         ])
         self.norm = norm_layer(embed_dim)
-        
+
         self.pred = nn.Linear(
             embed_dim,
             patch_size**2 * in_chans,
@@ -77,15 +77,6 @@ class ViT(nn.Module):
 
         # initialize nn.Linear and nn.LayerNorm
         self.apply(_init_weights)
-
-    def disable_grad(self):
-        for parameter in self.parameters():
-            parameter.requires_grad = False
-
-    def enable_grad(self):
-        for name, parameter in self.named_parameters():
-            if 'pos_embed' not in name:
-                parameter.requires_grad = True
 
     def unpatchify(self, patches):
         """Converts patches to images
@@ -242,6 +233,14 @@ class GeneratorUNet(nn.Module):
 
     def initialize_weights(self):
         self.apply(_init_weights)
+        
+    def disable_grad(self):
+        for parameter in self.parameters():
+            parameter.requires_grad = False
+
+    def enable_grad(self):
+        for parameter in self.parameters():
+            parameter.requires_grad = True
 
     def forward(self, x):
         skips = []
@@ -270,6 +269,14 @@ class DiscriminatorUNet(nn.Module):
 
     def initialize_weights(self):
         self.apply(_init_weights)
+        
+    def disable_grad(self):
+        for parameter in self.parameters():
+            parameter.requires_grad = False
+
+    def enable_grad(self):
+        for parameter in self.parameters():
+            parameter.requires_grad = True
 
     def forward(self, x):
         return self.block(x)
@@ -294,6 +301,15 @@ class GeneratorViT(nn.Module):
             depth,
             num_heads
         )
+        
+    def disable_grad(self):
+        for parameter in self.parameters():
+            parameter.requires_grad = False
+
+    def enable_grad(self):
+        for name, parameter in self.named_parameters():
+            if 'pos_embed' not in name:
+                parameter.requires_grad = True
 
     def forward(self, x):
         return self.block(x)
@@ -318,6 +334,15 @@ class DiscriminatorViT(nn.Module):
             depth,
             num_heads
         )
+        
+    def disable_grad(self):
+        for parameter in self.parameters():
+            parameter.requires_grad = False
+
+    def enable_grad(self):
+        for name, parameter in self.named_parameters():
+            if 'pos_embed' not in name:
+                parameter.requires_grad = True
 
     def forward(self, x):
         return self.block(x)

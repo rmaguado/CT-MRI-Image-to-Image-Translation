@@ -36,44 +36,44 @@ class Cyclegan(pl.LightningModule):
         return self.gen_a(z)
 
     def adv_criterion(self, y_hat, y):
-        return ((y_hat - y)**2).mean()#F.binary_cross_entropy_with_logits(y_hat, y)
+        return ((y_hat - y)**2).mean() #F.binary_cross_entropy_with_logits(y_hat, y)
 
     def recon_criterion(self, y_hat, y):
         return F.l1_loss(y_hat, y)
 
-    def adv_loss(self, real_X, disc_Y, gen_XY):
-        fake_Y = gen_XY(real_X)
-        disc_fake_Y_hat = disc_Y(fake_Y)
-        adv_loss_XY = self.adv_criterion(disc_fake_Y_hat, torch.ones_like(disc_fake_Y_hat))
-        return adv_loss_XY, fake_Y
+    def adv_loss(self, real_x, disc_y, gen_y):
+        fake_y = gen_y(real_x)
+        disc_fake_y_hat = disc_y(fake_y)
+        adv_loss_y = self.adv_criterion(disc_fake_y_hat, torch.ones_like(disc_fake_y_hat))
+        return adv_loss_y, fake_y
 
-    def id_loss(self, real_X, gen_YX):
-        id_X = gen_YX(real_X)
-        id_loss_X = self.recon_criterion(id_X, real_X)
-        return id_loss_X
+    def id_loss(self, real_x, gen_x):
+        id_x = gen_x(real_x)
+        id_loss_x = self.recon_criterion(id_x, real_x)
+        return id_loss_x
 
-    def cycle_loss(self, real_X, fake_Y, gen_YX):
-        cycle_X = gen_YX(fake_Y)
-        cycle_loss_X = self.recon_criterion(cycle_X, real_X)
-        return cycle_loss_X
-    
-    def gen_loss(self, real_X, real_Y, gen_XY, gen_YX, disc_Y):
-        adv_loss_XY, fake_Y = self.adv_loss(real_X, disc_Y, gen_XY)
+    def cycle_loss(self, real_x, fake_y, gen_x):
+        cycle_x = gen_x(fake_y)
+        cycle_loss_x = self.recon_criterion(cycle_x, real_x)
+        return cycle_loss_x
 
-        id_loss_Y = self.id_loss(real_Y, gen_XY)
+    def gen_loss(self, real_x, real_y, gen_y, gen_x, disc_y):
+        adv_loss_y, fake_y = self.adv_loss(real_x, disc_y, gen_y)
 
-        cycle_loss_X = self.cycle_loss(real_X, fake_Y, gen_YX)
-        cycle_loss_Y = self.cycle_loss(real_Y, gen_YX(real_Y), gen_XY)
-        cycle_loss = cycle_loss_X + cycle_loss_Y
+        id_loss_y = self.id_loss(real_y, gen_y)
 
-        gen_loss_XY = adv_loss_XY + 0.5*self.lambda_w*id_loss_Y + self.lambda_w*cycle_loss
-        return gen_loss_XY
+        cycle_loss_x = self.cycle_loss(real_x, fake_y, gen_x)
+        cycle_loss_y = self.cycle_loss(real_y, gen_x(real_y), gen_y)
+        cycle_loss = cycle_loss_x + cycle_loss_y
 
-    def disc_loss(self, real_X, fake_X, disc_X):
-        disc_fake_hat = disc_X(fake_X.detach())
+        gen_loss_y = adv_loss_y + 0.5*self.lambda_w*id_loss_y + self.lambda_w*cycle_loss
+        return gen_loss_y
+
+    def disc_loss(self, real_x, fake_x, disc_x):
+        disc_fake_hat = disc_x(fake_x.detach())
         disc_fake_loss = self.adv_criterion(disc_fake_hat, torch.zeros_like(disc_fake_hat))
 
-        disc_real_hat = disc_X(real_X)
+        disc_real_hat = disc_x(real_x)
         disc_real_loss = self.adv_criterion(disc_real_hat, torch.ones_like(disc_real_hat))
 
         disc_loss = (disc_fake_loss+disc_real_loss) / 2
@@ -96,11 +96,15 @@ class Cyclegan(pl.LightningModule):
         real_a, real_b = batch
         optims = self.optimizers()
 
+        self.disc_a.disable_grad()
+        self.disc_b.disable_grad()
         gen_loss_a = self.gen_loss(real_b, real_a, self.gen_a, self.gen_b, self.disc_a)
         self.manual_backward(gen_loss_a)
         gen_loss_b = self.gen_loss(real_a, real_b, self.gen_b, self.gen_a, self.disc_b)
         self.manual_backward(gen_loss_b)
 
+        self.disc_a.enable_grad()
+        self.disc_b.enable_grad()
         disc_loss_a = self.disc_loss(real_a, self.gen_a(real_b), self.disc_a)
         self.manual_backward(disc_loss_a)
         disc_loss_b = self.disc_loss(real_b, self.gen_b(real_a), self.disc_b)
@@ -115,34 +119,30 @@ class Cyclegan(pl.LightningModule):
         self.log("loss/generator_B", gen_loss_b)
         self.log("loss/discriminator_A", disc_loss_a)
         self.log("loss/discriminator_B", disc_loss_b)
-        self.log(
-            "learning_rate",
-            self.optimizers()[0].param_groups[0]["lr"],
-        )
 
         if (batch_idx // self.accumulate_grad_batches) %\
-                self.log_image_every_n_steps == 0:
-            self.logger.experiment.add_images(
+                self.accumulate_grad_batches == 0:
+            self.logger.experiment.add_image(
                 "A/real",
                 real_a[0][0].detach().cpu().type(torch.float32),
-                self.current_epoch,
+                batch_idx // self.accumulate_grad_batches,
                 dataformats="WH"
             )
-            self.logger.experiment.add_images(
-                "A/fake",
-                self.gen_b(real_b)[0][0].detach().cpu().type(torch.float32),
-                self.current_epoch,
+            self.logger.experiment.add_image(
+                "B/fake",
+                self.gen_b(real_a)[0][0].detach().cpu().type(torch.float32),
+                batch_idx // self.accumulate_grad_batches,
                 dataformats="WH"
             )
-            self.logger.experiment.add_images(
+            self.logger.experiment.add_image(
                 "B/real",
                 real_b[0][0].detach().cpu().type(torch.float32),
-                self.current_epoch,
+                batch_idx // self.accumulate_grad_batches,
                 dataformats="WH"
             )
-            self.logger.experiment.add_images(
-                "B/fake",
-                self.gen_a(real_a)[0][0].detach().cpu().type(torch.float32),
-                self.current_epoch,
+            self.logger.experiment.add_image(
+                "A/fake",
+                self.gen_a(real_b)[0][0].detach().cpu().type(torch.float32),
+                batch_idx // self.accumulate_grad_batches,
                 dataformats="WH"
             )

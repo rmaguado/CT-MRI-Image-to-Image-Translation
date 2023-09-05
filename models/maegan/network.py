@@ -6,27 +6,6 @@ import lightning.pytorch as pl
 from models.maegan.blocks import EncoderViT, DecoderViT, DiscriminatorViT
 from schedulers.schedulers import CosineAnnealingWarmupRestarts
 
-class MaeGanOutputs:
-    def __init__(
-        self,
-        loss,
-        pred=None,
-        mask=None,
-        reconstruction_loss=0,
-        adversarial_loss=0,
-        discriminator_real_loss=0,
-        discriminator_fake_loss=0,
-        cycle_loss=0
-    ):
-        self.loss = loss
-        self.pred = pred
-        self.mask = mask
-        self.reconstruction_loss = reconstruction_loss
-        self.adversarial_loss = adversarial_loss
-        self.discriminator_real_loss = discriminator_real_loss
-        self.discriminator_fake_loss = discriminator_fake_loss
-        self.cycle_loss = cycle_loss
-
 
 class MaeGanModel(nn.Module):
     """Masked Autoencoder with VisionTransformer backbone
