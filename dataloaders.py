@@ -104,7 +104,7 @@ class Dataloader:
         ) * 2
         self.mode = True
         self.counter = 0
-        
+
     def data_augmentation(self, batch_data):
         """Reflects and rotates the image at random.
 
