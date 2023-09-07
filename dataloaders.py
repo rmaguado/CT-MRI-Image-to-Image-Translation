@@ -67,13 +67,13 @@ class Dataset:
         return self
 
     def __next__(self):
-        if self.counter == self.total_images:
+        if self.counter + self.batch_size >= self.total_images:
             self.counter = 0
         batch = self.data[
             self.index_list[self.counter:self.counter+self.batch_size]
         ]
         self.counter += self.batch_size
-        return batch
+        return np.nan_to_num(batch)
 
 
 class Dataloader:
@@ -194,22 +194,28 @@ class UNetDataloader:
             self,
             data_root_path: str,
             dataset_name: str = "train",
-            size_limit: Optional[int] = None,
+            batch_size: int = 4,
             enable_data_augmentation: bool = False
     ):
         self.loaders = [
-            Dataset(data_root_path, dataset_name, "MR", enable_shuffle=False),
-            Dataset(data_root_path, dataset_name, "CT", enable_shuffle=False)
+            Dataset(
+                data_root_path,
+                dataset_name,
+                "MR",
+                batch_size=batch_size,
+                enable_shuffle=False
+            ),
+            Dataset(
+                data_root_path,
+                dataset_name,
+                "CT",
+                enable_shuffle=False
+            )
         ]
-        if size_limit is None:
-            self.loop_length = min(
-                [len(x) for x in self.loaders]
-            ) * 2
-        else:
-            self.loop_length = size_limit
+        self.loop_length = len(self.loaders[0])
         self.counter = 0
         self.enable_data_augmentation = enable_data_augmentation
-        
+
     def data_augmentation(self, batch_a, batch_b):
         """Reflects and rotates the images at random. Applies the same
         transformation to paired images.
@@ -245,4 +251,4 @@ class UNetDataloader:
         if self.enable_data_augmentation:
             batch_a, batch_b = self.data_augmentation(batch_a, batch_b)
         # inputs, targets
-        return batch_a, batch_b
+        return torch.from_numpy(batch_a.copy()), torch.from_numpy(batch_b.copy())
