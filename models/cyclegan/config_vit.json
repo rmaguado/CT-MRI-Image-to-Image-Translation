@@ -8,7 +8,7 @@
         "accelerator": "gpu",
         "devices": [0],
         "precision": "bf16-mixed",
-        "log_every_n_steps": 1,
+        "log_every_n_steps": 100,
         "enable_checkpointing": true,
         "max_epochs": 3
     },
@@ -23,13 +23,13 @@
         "lambda_w": 10,
         "lr": 0.002,
         "accumulate_grad_batches": 4,
-        "log_image_every_n_steps": 100,
+        "log_image_every_n_steps": 1500,
         "generator": {
             "img_size": 512,
             "patch_size": 16,
             "in_chans": 1,
             "embed_dim": 1024,
-            "depth": 12,
+            "depth": 6,
             "num_heads": 16
         },
         "discriminator": {
@@ -37,7 +37,7 @@
             "patch_size": 16,
             "in_chans": 1,
             "embed_dim": 1024,
-            "depth": 12,
+            "depth": 6,
             "num_heads": 16
         },
         "block_type": "ViT"

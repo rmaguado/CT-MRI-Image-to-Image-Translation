@@ -22,7 +22,7 @@ class UNet(nn.Module):
         self,
         in_channels: int = 1,
         base_dim: int = 32,
-        mask_values: list[float] = [1024/(3071+1024), 0.],
+        mask_values: tuple[float] = (1024/(3071+1024), 0.),
         bilinear=False
     ):
         super(UNet, self).__init__()
@@ -32,32 +32,32 @@ class UNet(nn.Module):
         self.bilinear = bilinear
         self.critereon = nn.MSELoss()
 
-        self.inc = (DoubleConv(in_channels, base_dim))
-        self.down1 = (Down(base_dim, base_dim * 2))
-        self.down2 = (Down(base_dim * 2, base_dim * 4))
-        self.down3 = (Down(base_dim * 4, base_dim * 8))
+        self.inc = DoubleConv(in_channels, base_dim)
+        self.down1 = Down(base_dim, base_dim * 2)
+        self.down2 = Down(base_dim * 2, base_dim * 4)
+        self.down3 = Down(base_dim * 4, base_dim * 8)
         factor = 2 if bilinear else 1
-        self.down4 = (Down(base_dim * 8, base_dim * 16 // factor))
-        self.up1 = (Up(base_dim * 16, base_dim * 8 // factor, bilinear))
-        self.up2 = (Up(base_dim * 8, base_dim * 4 // factor, bilinear))
-        self.up3 = (Up(base_dim * 4, base_dim * 2 // factor, bilinear))
-        self.up4 = (Up(base_dim * 2, base_dim, bilinear))
-        self.outc = (OutConv(base_dim, 1))
+        self.down4 = Down(base_dim * 8, base_dim * 16 // factor)
+        self.up1 = Up(base_dim * 16, base_dim * 8 // factor, bilinear)
+        self.up2 = Up(base_dim * 8, base_dim * 4 // factor, bilinear)
+        self.up3 = Up(base_dim * 4, base_dim * 2 // factor, bilinear)
+        self.up4 = Up(base_dim * 2, base_dim, bilinear)
+        self.outc = OutConv(base_dim, 1)
 
-    def forward(self, x, target):
-        x1 = self.inc(x)
-        x2 = self.down1(x1)
-        x3 = self.down2(x2)
-        x4 = self.down3(x3)
-        x5 = self.down4(x4)
-        x = self.up1(x5, x4)
-        x = self.up2(x, x3)
-        x = self.up3(x, x2)
-        x = self.up4(x, x1)
-        pred = self.outc(x)
+    def forward(self, input_image, target):
+        layer_1 = self.inc(input_image)
+        layer_2 = self.down1(layer_1)
+        layer_3 = self.down2(layer_2)
+        layer_4 = self.down3(layer_3)
+        layer_5 = self.down4(layer_4)
+        input_image = self.up1(layer_5, layer_4)
+        input_image = self.up2(input_image, layer_3)
+        input_image = self.up3(input_image, layer_2)
+        input_image = self.up4(input_image, layer_1)
+        pred = self.outc(input_image)
         loss = self.forward_loss(pred, target)
         return UNetOutputs(pred, loss)
-    
+
     def forward_loss(self, pred, target):
         """
         MSE loss for target pixels within mask.
@@ -86,12 +86,18 @@ class UNetLM(pl.LightningModule):
         )
         return [optimizer], [{"scheduler":lr_scheduler, "interval": "step"}]
 
-    def log_images(self, input_img, pred):
-        self.logger.experiment.add_images(
-            "input", input_img.detach().cpu().type(torch.float32), self.global_step
+    def log_images(self, input_img, pred, batch_idx):
+        self.logger.experiment.add_image(
+            "input",
+            input_img[0][0].detach().cpu().type(torch.float32),
+            batch_idx,
+            dataformats="WH"
         )
-        self.logger.experiment.add_images(
-            "pred", pred, self.global_step
+        self.logger.experiment.add_image(
+            "pred",
+            pred[0][0].detach().cpu().type(torch.float32),
+            batch_idx,
+            dataformats="WH"
         )
 
     def training_step(self, batch, batch_idx):
@@ -100,5 +106,5 @@ class UNetLM(pl.LightningModule):
         loss = outputs.loss
         self.log('loss', loss.item())
         if batch_idx % self.log_image_every_n_steps == 0:
-            self.log_images(input_img, outputs.pred)
+            self.log_images(input_img, outputs.pred, batch_idx)
         return loss

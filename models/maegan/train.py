@@ -38,6 +38,6 @@ trainer = pl.Trainer(
 )
 trainer.fit(
     model=model,
-    train_dataloaders=train_loader
-    #ckpt_path="/nfs/home/clruben/workspace/nst/models/mae_gan/checkpoints/model_checkpoint.ckpt"
+    train_dataloaders=train_loader,
+    ckpt_path="/nfs/home/clruben/workspace/nst/models/maegan/checkpoints/last.ckpt"
 )

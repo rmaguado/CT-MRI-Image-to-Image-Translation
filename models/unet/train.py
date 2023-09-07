@@ -8,15 +8,15 @@ from models.unet.network import UNetLM
 
 torch.set_float32_matmul_precision('medium')
 
-DATA_PATH = "/home/radiomica/ruben/CT-MRI-Image-to-Image-Translation/data/reg"
-CONFIG_PATH = "/home/radiomica/ruben/CT-MRI-Image-to-Image-Translation/models/unet/config.json"
+DATA_PATH = "/nfs/home/clruben/workspace/nst/data/reg/"
+CONFIG_PATH = "/nfs/home/clruben/workspace/nst/models/unet/config.json"
 
 with open(CONFIG_PATH, encoding="utf-8") as file:
     config = json.load(file)
 
 train_loader = UNetDataloader(
-    data_root_path,
-    'train',
+    DATA_PATH,
+    'newtrain',
     enable_data_augmentation=True
 )
 

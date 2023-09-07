@@ -38,7 +38,6 @@ class MaeGanModel(nn.Module):
         self.mask_ratio = mask_ratio
         self.exclude_mask_loss = exclude_mask_loss
         self.discriminator_loss_weight = discriminator_loss_weight
-        self.crossentropy = nn.CrossEntropyLoss()
 
         self.mode = "mae"
 
@@ -66,17 +65,19 @@ class MaeGanModel(nn.Module):
                 ) for modality in ["CT", "MR"]
         })
 
-        self.discriminator = DiscriminatorViT(
-            img_size=img_size,
-            patch_size=patch_size,
-            in_chans=in_chans,
-            encoder_embed_dim=encoder_embed_dim,
-            discriminator_embed_dim=discriminator_embed_dim,
-            discriminator_num_heads=discriminator_num_heads,
-            discriminator_depth=discriminator_depth,
-            mlp_ratio=mlp_ratio,
-            norm_layer=norm_layer
-        )
+        self.discriminators = nn.ModuleDict({
+            modality : DiscriminatorViT(
+                img_size=img_size,
+                patch_size=patch_size,
+                in_chans=in_chans,
+                encoder_embed_dim=encoder_embed_dim,
+                discriminator_embed_dim=discriminator_embed_dim,
+                discriminator_num_heads=discriminator_num_heads,
+                discriminator_depth=discriminator_depth,
+                mlp_ratio=mlp_ratio,
+                norm_layer=norm_layer
+            ) for modality in ["CT", "MR"]
+        })
 
         self.norm_pix_loss = norm_pix_loss
 
@@ -89,10 +90,12 @@ class MaeGanModel(nn.Module):
             decoder.disable_grad()
 
     def enable_discriminator_grads(self):
-        self.discriminator.enable_grad()
+        for discriminator in self.discriminators.values():
+            discriminator.enable_grad()
 
     def disable_discriminator_grads(self):
-        self.discriminator.disable_grad()
+        for discriminator in self.discriminators.values():
+            discriminator.disable_grad()
 
     def set_mode(self, mode):
         self.mode = mode
@@ -187,7 +190,7 @@ class MaeGanModel(nn.Module):
             return (loss * mask).sum() / mask.sum()
         return loss.mean()
 
-    def fake_discriminator_loss(self, decoder_pred):
+    def fake_discriminator_loss(self, decoder_pred, input_type):
         """Computes LSGAN discriminator loss for fake images.
         
         Args:
@@ -198,13 +201,13 @@ class MaeGanModel(nn.Module):
         latent_discriminator, _, ids_restore_discriminator = self.encoder(
             self.unpatchify(decoder_pred), mask_ratio=0
         )
-        fake_pred_discriminator = self.discriminator(
+        fake_pred_discriminator = self.discriminators[input_type](
             latent_discriminator, ids_restore_discriminator
         )
         loss = (fake_pred_discriminator)**2 / 2
         return fake_pred_discriminator, loss.mean() #loss[mask == 1].mean() for only masked patches
 
-    def real_discriminator_loss(self, data):
+    def real_discriminator_loss(self, data, input_type):
         """Computes LSGAN real loss
         
         Args:
@@ -214,23 +217,22 @@ class MaeGanModel(nn.Module):
         """
         latent, _, ids_restore = self.encoder(data, mask_ratio=0)
 
-        real_pred = self.discriminator(latent, ids_restore)
+        real_pred = self.discriminators[input_type](latent, ids_restore)
         loss = ((real_pred - 1)**2).mean() / 2
         return real_pred, loss
     
-    def adversarial_loss(self, disc_pred_real, disc_pred_fake):
+    def adversarial_loss(self, disc_pred_fake):
         """Computes LSGAN adversarial loss
         
         Fake images should not contain unmasked patches.
         
         Args:
-            disc_pred_real (torch.Tensor): [N, L]
             disc_pred_fake (torch.Tensor): [N, L]
         Returns:
             loss (torch.Tensor): [1]
         """
         # [N, L], mean loss per patch:
-        loss = ((disc_pred_fake-1)**2 + (disc_pred_real)**2).mean() / 2
+        loss = ((disc_pred_fake-1)**2).mean() / 2
         return loss
 
     def forward_cycle(self, data, input_type):
@@ -259,13 +261,13 @@ class MaeGanModel(nn.Module):
         reconstruction_loss = self.reconstruction_loss(data, pred, mask)
         # real
         real_discriminator_pred, real_discriminator_loss = \
-            self.real_discriminator_loss(data)
+            self.real_discriminator_loss(data, input_type)
 
         # fake
         fake_discriminator_pred, fake_discriminator_loss =\
-            self.fake_discriminator_loss(pred)
+            self.fake_discriminator_loss(pred, input_type)
         adversarial_loss = self.adversarial_loss(
-            real_discriminator_pred, fake_discriminator_pred
+            fake_discriminator_pred
         )
 
         return (
